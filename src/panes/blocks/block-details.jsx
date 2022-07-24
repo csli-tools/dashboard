@@ -3,7 +3,9 @@ import React from "react";
 export const BlockDetails = ({blockHeights, selectBlockIdx, amFocused }) => {
   const styles = {
     border: {
-      type: 'line'
+      type: 'line',
+      bottom: null,
+      right: null,
     },
     style: {
       border: {

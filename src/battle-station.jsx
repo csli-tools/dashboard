@@ -6,7 +6,6 @@ import { BlockDetails } from './panes/blocks/block-details'
 import { decodeTxRaw, DecodedTxRaw, decodePubkey } from '@cosmjs/proto-signing'
 import { toHex, toBase64 } from '@cosmjs/encoding'
 import { sha256 } from "@cosmjs/crypto";
-import { decodeSignature, StdSignature } from "@cosmjs/amino"
 import { isMsgExecuteEncodeObject, isMsgStoreCodeEncodeObject, isMsgInstantiateContractEncodeObject, isMsgUpdateAdminEncodeObject, isMsgClearAdminEncodeObject, isMsgMigrateEncodeObject, IndexedTx } from "@cosmjs/cosmwasm-stargate";
 import {
   MsgClearAdmin,
@@ -20,8 +19,17 @@ import { isMsgSendEncodeObject, MsgSendEncodeObject } from "@cosmjs/stargate";
 import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx";
 import { Debuggah } from "./panes/debug/debug";
 import * as jq from 'node-jq'
+import * as fs from 'fs'
+import { wsCSLIPayload } from './utils/websockets'
+import * as util from 'util'
 
-export const Dashboard = ({screen, client}) => {
+export const Dashboard = ({screen, client, wss }) => {
+  // so tired
+  let lastTxWebsocketMessage: wsCSLIPayload = {
+    type: "tx",
+    identifier: '',
+    data: null
+  }
   const totalPanes = 3 // let's not hardcode this
   const [moveDirection, setMoveDirection] = useState({
     nonce: 0,
@@ -29,31 +37,43 @@ export const Dashboard = ({screen, client}) => {
   })
   const [focusedPane, setFocusedPane] = useState(0)
   const [selectBlockIdx, setSelectBlockIdx] = useState(0)
-  const [validSelectedBlockHeight: Number | null, setValidSelectedBlockHeight] = useState(null)
+  // TODO: we're never setting this yet
   const [selectTxIdx, setSelectTxIdx] = useState(0)
-  // const [lastHash, setLastHash] = useState('genesis')
   const [txHashes, setTxHashes] = useState([]);
-  const [txDetails, setTxDetails] = useState('(Use tab to change panes. Arrow keys to navigate.)');
   const [blockHeights, setBlockHeights] = useState([]);
   const [debugEntries, setDebugEntries] = useState([]);
-  const [txData, setTxData] = useState('hi');
+  const [txData, setTxData] = useState('(Use tab to change panes. Arrow keys to navigate.)');
 
   const isJSON= (stuff) => {
     let whoops = false
+    // if (typeof stuff === 'string') return false
     try {
-      JSON.stringify(stuff)
+      JSON.parse(stuff)
     } catch (e) {
-      console.log('aloha error', e)
       whoops = true
     }
     return !whoops
   }
 
-  const d = (message, stuff) => {
+  // Debugger window
+  const d = (message, stuff = null, pleaseWriteToLogs = false) => {
+    let messageContent
     if (isJSON(stuff)) {
-      setDebugEntries(debugEntries => [`${message} ${JSON.stringify(stuff)}`, ...debugEntries])
+      setDebugEntries(debugEntries => {
+        messageContent = [`${message}${stuff ? ` ${JSON.stringify(stuff)}`: ''}`, ...debugEntries]
+        return messageContent
+      })
     } else {
-      setDebugEntries(debugEntries => [`${message} ${stuff}`, ...debugEntries])
+      setDebugEntries(debugEntries => {
+        messageContent = [`${message}${stuff ? ` ${stuff}` : ''}`, ...debugEntries]
+        return messageContent
+      })
+    }
+    // Write to logs if they want
+    if (pleaseWriteToLogs) {
+      // Thank you for saying please
+      // TODO: put this in a home directory
+      fs.appendFile('csli-log.txt', `${messageContent}\n`, 'utf8', () => {});
     }
   }
 
@@ -61,10 +81,15 @@ export const Dashboard = ({screen, client}) => {
     const latestHeight = await client.getHeight()
     // Make sure we're not polling so frequently that we get the same height
     if (blockHeights && latestHeight === blockHeights[blockHeights.length - 1]) return
-    d('New block', latestHeight)
+    wss.clients.forEach(function each(client) {
+      const blockUpdatePayload: wsCSLIPayload = {
+        type: 'block',
+        data: latestHeight
+      }
+      client.send(JSON.stringify(blockUpdatePayload))
+    });
+
     const latestBlockDetails = await client.getBlock(latestHeight)
-    // console.log(`\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n`)
-    // console.log('aloha latestBlockDetails', latestBlockDetails)
     const blockHasTransactions = latestBlockDetails.txs.length !== 0
     const blockLabel = blockHasTransactions ? latestHeight.toString() : `${latestHeight} (empty)`
 
@@ -72,34 +97,6 @@ export const Dashboard = ({screen, client}) => {
       const updatedBlockHeights = [blockLabel, ...blockHeights]
       return updatedBlockHeights
     });
-    // if (blockHasTransactions) {
-    //   d('checking for selectBlockIdx', selectBlockIdx)
-    //   d('checking for Number(blockLabel)', Number(blockLabel))
-    //   checkForTransactionsInBlock(selectBlockIdx, blockHeights)
-    // }
-
-    // if (blockHasTransactions) {
-    //   const firstTx: DecodedTxRaw = decodeTxRaw(latestBlockDetails.txs[0])
-    //   const txHash = sha256(latestBlockDetails.txs[0])
-    //   const firstMessage = firstTx.body.messages[0]
-    //   // console.log('aloha firstMessage', firstMessage)
-    //   if (isMsgSendEncodeObject(firstMessage)) {
-    //     const msg: MsgSend = MsgSend.decode(firstMessage.value)
-    //     // console.log('aloha msg', msg)
-    //   }
-    //   if (isMsgExecuteEncodeObject) {
-    //     let msg: MsgExecuteContract = MsgExecuteContract.decode(firstMessage.value)
-    //     msg.msg = JSON.parse(Buffer.from(msg.msg).toString())
-    //     // console.log('aloha msg', msg)
-    //
-    //   }
-    //   // console.log('aloha txHash', txHash)
-    //   // console.log('tx hash', toHex(sha256(firstTx)))
-    //
-    //   // console.log('aloha latestBlockDetails (has txs)', latestBlockDetails)
-    //   // hardcoded to just show the first
-    //   // setTxHashes(txHashes => [toHex(txHash), ...txHashes])
-    // }
   }
 
   const checkForTransactionsInBlock = async () => {
@@ -107,24 +104,31 @@ export const Dashboard = ({screen, client}) => {
     // Please send halp, anon devs
     let blockIndex = selectBlockIdx;
     let bh = blockHeights;
-    d('my selected index is', blockIndex);
-    d('blockHeights length is ', bh?.length);
     if (bh.length === 0 || !bh) {
       d('thought i should return early');
       return
     }
-    d('top of check for tx in block blockIndex', blockIndex)
 
     const blockHeight = bh[blockIndex]
-    d('top of check for tx in block blockHeight', blockHeight)
     if (!blockHeight) return // ditto with my React silliness
     if (blockHeight.includes('empty')) {
       setTxData('')
-      setTxHashes([])
+      setTxHashes(txHashes => {
+        // boy, is this stupid
+        // Let external panes know, too
+        wss.clients.forEach(function each(client) {
+          const txUpdatePayload: wsCSLIPayload = {
+            type: 'tx',
+            identifier: 'nada',
+            data: null
+          }
+          client.send(JSON.stringify(txUpdatePayload))
+        });
+        return []
+      })
       return
     }
     const blockDetails = await client.getBlock(Number(blockHeight))
-    d('blockDetails', blockDetails)
 
     const blockHasTransactions = blockDetails.txs.length !== 0
 
@@ -133,51 +137,57 @@ export const Dashboard = ({screen, client}) => {
       let deserializedFirstTx = firstTx
       const txHash = sha256(blockDetails.txs[0])
       const firstMessage = firstTx.body.messages[0]
-      d('aloha firstMessage', firstMessage)
       let msg: any
       if (isMsgSendEncodeObject(firstMessage)) {
         msg = MsgSend.decode(firstMessage.value)
-        // console.log('aloha msg', msg)
-        d('aloha MsgSend', msg)
         deserializedFirstTx.body.messages[0].value = msg
       } else if (isMsgExecuteEncodeObject(firstMessage)) {
         msg = MsgExecuteContract.decode(firstMessage.value)
         msg.msg = JSON.parse(Buffer.from(msg.msg).toString())
         deserializedFirstTx.body.messages[0].value = msg
-        // console.log('aloha msg', msg)
-        d('aloha MsgExecuteContract', msg)
       }
       // hardcoded to just show the first
       const readableTxHash = toHex(txHash)
       let indexedTx: IndexedTx = await client.getTx(readableTxHash)
       indexedTx.tx = deserializedFirstTx
       const stringOfSignature = Buffer.from(indexedTx.tx.signatures[0])
-      d('stringOfSignature', stringOfSignature)
       const base64OfSignature = toBase64(stringOfSignature)
-      d('base64OfSignature', base64OfSignature)
-      // const whatIsThisThing = decodeSignature(base64OfSignature)
-      // d('whatIsThisThing', whatIsThisThing)
-      // const firstSignature: StdSignature = {
-      //   pub_key: decodePubkey(indexedTx.tx.authInfo.signerInfos[0].publicKey),
-      //   signature: whatIsThisThing
-      // }
-      // d('firstSignature type', firstSignature.pub_key.type)
-      // // good stuff below
       indexedTx.tx.signatures[0] = base64OfSignature
       indexedTx.tx.authInfo.signerInfos[0].publicKey.value = decodePubkey(indexedTx.tx.authInfo.signerInfos[0].publicKey)
-      indexedTx.rawLog = JSON.parse(indexedTx.rawLog)
-
-      // d('aloha', indexedTx.tx.signatures)
+      if (indexedTx.rawLog) {
+        // Wasm messages may not have this
+        if (isJSON(indexedTx.rawLog)) {
+          d('rawlog', indexedTx.rawLog)
+          indexedTx.rawLog = JSON.parse(indexedTx.rawLog)
+        }
+      }
 
       setTxHashes([readableTxHash])
-      // // jq with colors
-      // const txDataColors = await jq.run('.', msg, { input: 'json', color: true})
+      // jq with colors
       const txDataColors = await jq.run('.', indexedTx, { input: 'json', color: true})
-      // const txDataColors = await jq.run('.', deserializedFirstTx, { input: 'json', color: true})
-      // d('aloha txDataColors', txDataColors)
-      setTxData(txDataColors)
+      // whole shebang, keep the line below for a bit longer, please
+      // const fullIndexedTx = util.inspect(indexedTx, false, null, true)
+      const fullIndexedTx = indexedTx.tx
 
-      // setTxData(JSON.stringify(txDataColors, null, 2))
+      // Fire off a websocket message
+      const txUpdatePayload: wsCSLIPayload = {
+        type: 'tx',
+        identifier: indexedTx.hash,
+        data: fullIndexedTx
+      }
+      wss.clients.forEach(function each(client) {
+        if (lastTxWebsocketMessage.identifier !== txUpdatePayload.identifier) {
+          // this is a bad way to do it, my brain hurts tho
+          client.send(JSON.stringify(txUpdatePayload))
+        }
+      });
+      lastTxWebsocketMessage = {
+        type: 'tx',
+        identifier: indexedTx.hash,
+        data: null
+      }
+
+      setTxData(txDataColors)
     }
   }
 
@@ -211,7 +221,7 @@ export const Dashboard = ({screen, client}) => {
   }, []);
 
   useEffect(() => {
-    screen.key(['tab', 'up', 'down', 'left', 'right'], (_, key) => navigatePane(key.name))
+    screen.key(['tab', 'up', 'down', 'left', 'right', 'space', 'o', 'w'], (_, key) => navigatePane(key.name))
   }, [navigatePane])
 
   useEffect(() => {
@@ -223,7 +233,6 @@ export const Dashboard = ({screen, client}) => {
             setSelectBlockIdx(selectBlockIdx => {
               if (selectBlockIdx > 0) {
                 if (selectBlockIdx >= blockHeights.length) selectBlockIdx = blockHeights.length - 1
-                d('aloha subtracting 1 from ', selectBlockIdx)
                 return (selectBlockIdx - 1)
               } else return selectBlockIdx
             })
@@ -232,7 +241,6 @@ export const Dashboard = ({screen, client}) => {
             // Go down one unless we're at the bottom
             setSelectBlockIdx(selectBlockIdx => {
               if (selectBlockIdx < blockHeights.length - 1) {
-                d('aloha adding 1 from ', selectBlockIdx)
                 return (selectBlockIdx + 1)
               } else return selectBlockIdx
             })
@@ -245,7 +253,6 @@ export const Dashboard = ({screen, client}) => {
             // Go down two
             setSelectBlockIdx(selectBlockIdx => {
               if (selectBlockIdx < blockHeights.length - 2) {
-                d('aloha adding 2 from ', selectBlockIdx)
                 return (selectBlockIdx + 2)
               } else return selectBlockIdx
             })
@@ -255,6 +262,8 @@ export const Dashboard = ({screen, client}) => {
       case 1:
         d('pane 1: pressed ', moveDirection.direction)
         break;
+      case 2:
+        d('pane 2: pressed ', moveDirection.direction)
     }
   }, [moveDirection])
 
@@ -262,14 +271,6 @@ export const Dashboard = ({screen, client}) => {
   useEffect(async () => {
     setSelectBlockIdx(selectBlockIdx => {
       // d('debugging current selectBlockIdx', selectBlockIdx)
-      // d('debugging current selectBlockIdx height val', blockHeights[selectBlockIdx])
-      // React sucks, or I suck, so gotta do a couple weird things
-      // checkForTransactionsInBlock
-      // if (blockHeights[selectBlockIdx]) await checkForTransactionsInBlock(blockHeights[selectBlockIdx])
-      // if (blockHeights.length === 1) return 0
-      // if (selectBlockIdx < blockHeights.length) {
-      //   return (selectBlockIdx + 1)
-      // } else return selectBlockIdx
       let newSelectBlockIdx
       if (blockHeights.length === 1) {
         newSelectBlockIdx = 0;
@@ -278,18 +279,9 @@ export const Dashboard = ({screen, client}) => {
       } else {
         newSelectBlockIdx = selectBlockIdx
       }
-      // setValidSelectedBlockHeight(validSelectedBlockHeight => {
-      //   // const blockLabel = blockHeights[validSelectedBlockHeight]
-      //   // if (!blockLabel.includes('empty')) {
-      //   //   return Number(blockLabel)
-      //   // }
-      //   d('aloha checking', newSelectBlockIdx)
-      //   return validSelectedBlockHeight
-      // })
 
       return newSelectBlockIdx
     })
-    // await checkForTransactionsInBlock(selectBlockIdx, blockHeights)
   }, [blockHeights])
 
 
@@ -297,12 +289,8 @@ export const Dashboard = ({screen, client}) => {
   //  - a new block is added, and selection changes to keep focus
   //  - user pressed arrow keys
   useEffect(() => {
-    // d('top of selectBlockIdx useEffect', selectBlockIdx)
     // TODO: this was helpful
     checkForTransactionsInBlock(selectBlockIdx, blockHeights)
-    // setTxHashes(async txHashes => {
-    //   return txHashes
-    // })
   }, [selectBlockIdx, blockHeights])
 
   return (

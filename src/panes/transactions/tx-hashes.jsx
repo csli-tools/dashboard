@@ -3,7 +3,9 @@ import React from "react";
 export const TxHashes = ({txHashes, selectTxIdx, amFocused }) => {
   const styles = {
     border: {
-      type: 'line'
+      type: 'line',
+      bottom: null,
+      right: null,
     },
     style: {
       border: {

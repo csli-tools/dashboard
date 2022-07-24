@@ -3,7 +3,9 @@ import React from "react";
 export const Debuggah = ({ debugEntries }) => {
   const styles = {
     border: {
-      type: 'line'
+      type: 'line',
+      bottom: null,
+      right: null,
     },
     style: {
       border: {

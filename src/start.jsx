@@ -1,12 +1,12 @@
 // Before starting the dashboard, excuse me, BATTLE STATION
 //   ensure we can connect to the RPC
-import { attemptConnect } from './utils/check-rpc-connection'
+import { attemptConnect } from './utils/connect'
 import blessed from 'blessed'
 import { render } from 'react-blessed'
 import { Dashboard} from "./battle-station";
 import React from 'react'
 
-attemptConnect().then(client => {
+attemptConnect().then(({ wss, client }) => {
   if (client) {
     const screen = blessed.screen({
       autoPadding: true,
@@ -21,6 +21,7 @@ attemptConnect().then(client => {
     render(<Dashboard
       screen={screen}
       client={client}
+      wss={wss}
     />, screen);
   } else {
     console.log('Exiting so you can address the error, friend.')
