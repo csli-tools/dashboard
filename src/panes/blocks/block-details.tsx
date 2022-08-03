@@ -1,7 +1,13 @@
 import React from "react";
 
-export const BlockDetails = ({blockHeights, selectBlockIdx, amFocused }) => {
-  const styles = {
+interface BlockDetailsProps {
+  blockHeights: any
+  selectBlockIdx: any
+  isFocused: boolean
+}
+
+export const BlockDetails: React.FC<BlockDetailsProps> = ({blockHeights, selectBlockIdx, isFocused }) => {
+  const styles: any = {
     border: {
       type: 'line',
       bottom: null,
@@ -10,7 +16,7 @@ export const BlockDetails = ({blockHeights, selectBlockIdx, amFocused }) => {
     style: {
       border: {
         fg: '#eb5367',
-        bg: amFocused ? 'yellow' : null
+        bg: isFocused ? 'yellow' : null
       }
     },
     padding: {
@@ -27,7 +33,6 @@ export const BlockDetails = ({blockHeights, selectBlockIdx, amFocused }) => {
       label="Blocks"
       width="50%"
       height="30%"
-      autoPadding={true}
       class={styles}>
       <list
         style={
@@ -41,7 +46,6 @@ export const BlockDetails = ({blockHeights, selectBlockIdx, amFocused }) => {
         keys={true}
         items={blockHeights}
         selected={selectBlockIdx}
-        scroll={selectBlockIdx}
       />
     </box>
   );

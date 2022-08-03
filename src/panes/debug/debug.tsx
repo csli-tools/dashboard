@@ -1,7 +1,11 @@
 import React from "react";
 
-export const Debuggah = ({ debugEntries }) => {
-  const styles = {
+interface DebuggahProps {
+  debugEntries: any[]
+}
+
+export const Debuggah: React.FC<DebuggahProps> = ({ debugEntries }) => {
+  const styles: any = {
     border: {
       type: 'line',
       bottom: null,
@@ -26,7 +30,6 @@ export const Debuggah = ({ debugEntries }) => {
       top="75%"
       width="100%"
       height="25%"
-      autoPadding={true}
       class={styles}>
       <list
         items={debugEntries}

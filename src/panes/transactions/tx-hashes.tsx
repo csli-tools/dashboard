@@ -1,7 +1,14 @@
 import React from "react";
+import blessed from "blessed"
 
-export const TxHashes = ({txHashes, selectTxIdx, amFocused }) => {
-  const styles = {
+interface TxHashesProps {
+  txHashes: any
+  selectTxIdx: any
+  isFocused: boolean
+}
+
+export const TxHashes: React.FC<TxHashesProps> = ({txHashes, selectTxIdx, isFocused }) => {
+  const styles: any = {
     border: {
       type: 'line',
       bottom: null,
@@ -10,7 +17,7 @@ export const TxHashes = ({txHashes, selectTxIdx, amFocused }) => {
     style: {
       border: {
         fg: '#eb5367',
-        bg: amFocused ? 'yellow' : null
+        bg: isFocused ? 'yellow' : null
       }
     },
     padding: {
@@ -28,7 +35,6 @@ export const TxHashes = ({txHashes, selectTxIdx, amFocused }) => {
       left="50%"
       width="50%"
       height="30%"
-      autoPadding={true}
       class={styles}>
       <list
         style={

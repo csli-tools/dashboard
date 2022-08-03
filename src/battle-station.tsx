@@ -313,16 +313,16 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
       <BlockDetails
         blockHeights={blockHeights}
         selectBlockIdx={selectBlockIdx}
-        amFocused={focusedPane === 0}
+        isFocused={focusedPane === 0}
       />
       <TxHashes
         txHashes={txHashes}
         selectTxIdx={selectTxIdx}
-        amFocused={focusedPane === 1}
+        isFocused={focusedPane === 1}
       />
       <TxDetails
         txData={txData}
-        amFocused={focusedPane === 2}
+        isFocused={focusedPane === 2}
       />
       <Debuggah
         debugEntries={debugEntries}
