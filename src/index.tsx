@@ -1,10 +1,10 @@
+
 // Before starting the dashboard, excuse me, BATTLE STATION
 //   ensure we can connect to the RPC
 import { attemptConnect } from './utils/connect'
 import blessed from 'blessed'
 import { render } from 'react-blessed'
 import { Dashboard} from "./battle-station";
-import React from 'react'
 
 attemptConnect().then(({ wss, client }) => {
   if (client) {

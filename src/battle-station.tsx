@@ -6,7 +6,9 @@ import { BlockDetails } from './panes/blocks/block-details'
 import { decodeTxRaw, DecodedTxRaw, decodePubkey } from '@cosmjs/proto-signing'
 import { toHex, toBase64 } from '@cosmjs/encoding'
 import { sha256 } from "@cosmjs/crypto";
-import { isMsgExecuteEncodeObject, isMsgStoreCodeEncodeObject, isMsgInstantiateContractEncodeObject, isMsgUpdateAdminEncodeObject, isMsgClearAdminEncodeObject, isMsgMigrateEncodeObject, IndexedTx } from "@cosmjs/cosmwasm-stargate";
+import blessed from 'blessed'
+import { isMsgExecuteEncodeObject, isMsgStoreCodeEncodeObject, isMsgInstantiateContractEncodeObject, isMsgUpdateAdminEncodeObject, isMsgClearAdminEncodeObject, isMsgMigrateEncodeObject } from "@cosmjs/cosmwasm-stargate";
+import { IndexedTx } from '@cosmjs/stargate'
 import {
   MsgClearAdmin,
   MsgExecuteContract,
@@ -20,14 +22,20 @@ import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx";
 import { Debuggah } from "./panes/debug/debug";
 import * as jq from 'node-jq'
 import * as fs from 'fs'
-import { wsCSLIPayload } from './utils/websockets'
+import WSCSLIPayload from './utils/websockets'
 import * as util from 'util'
+import DecodedTransaction from './utils/DecodedTransaction'
 
-export const Dashboard = ({screen, client, wss }) => {
+interface DashboardProps {
+  screen: blessed.Widgets.Screen
+  client: any,
+  wss: any
+}
+
+export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
   // so tired
-  let lastTxWebsocketMessage: wsCSLIPayload = {
+  let lastTxWebsocketMessage: WSCSLIPayload = {
     type: "tx",
-    identifier: '',
     data: null
   }
   const totalPanes = 3 // let's not hardcode this
@@ -39,12 +47,12 @@ export const Dashboard = ({screen, client, wss }) => {
   const [selectBlockIdx, setSelectBlockIdx] = useState(0)
   // TODO: we're never setting this yet
   const [selectTxIdx, setSelectTxIdx] = useState(0)
-  const [txHashes, setTxHashes] = useState([]);
-  const [blockHeights, setBlockHeights] = useState([]);
-  const [debugEntries, setDebugEntries] = useState([]);
-  const [txData, setTxData] = useState('(Use tab to change panes. Arrow keys to navigate.)');
+  const [txHashes, setTxHashes] = useState<any[]>([]);
+  const [blockHeights, setBlockHeights] = useState<any[]>([]);
+  const [debugEntries, setDebugEntries] = useState<string[]>([]);
+  const [txData, setTxData] = useState<any>('(Use tab to change panes. Arrow keys to navigate.)');
 
-  const isJSON= (stuff) => {
+  const isJSON= (stuff: any) => {
     let whoops = false
     // if (typeof stuff === 'string') return false
     try {
@@ -56,19 +64,15 @@ export const Dashboard = ({screen, client, wss }) => {
   }
 
   // Debugger window
-  const d = (message, stuff = null, pleaseWriteToLogs = false) => {
+  const d = (message: any, stuff: any | null = null, pleaseWriteToLogs = false) => {
     let messageContent
-    if (isJSON(stuff)) {
-      setDebugEntries(debugEntries => {
-        messageContent = [`${message}${stuff ? ` ${JSON.stringify(stuff)}`: ''}`, ...debugEntries]
-        return messageContent
-      })
+    if (stuff && isJSON(stuff)) {
+      messageContent = JSON.stringify(stuff)
     } else {
-      setDebugEntries(debugEntries => {
-        messageContent = [`${message}${stuff ? ` ${stuff}` : ''}`, ...debugEntries]
-        return messageContent
-      })
+      messageContent = stuff
     }
+    setDebugEntries([`${message} ${messageContent}`, ...debugEntries])
+
     // Write to logs if they want
     if (pleaseWriteToLogs) {
       // Thank you for saying please
@@ -81,8 +85,8 @@ export const Dashboard = ({screen, client, wss }) => {
     const latestHeight = await client.getHeight()
     // Make sure we're not polling so frequently that we get the same height
     if (blockHeights && latestHeight === blockHeights[blockHeights.length - 1]) return
-    wss.clients.forEach(function each(client) {
-      const blockUpdatePayload: wsCSLIPayload = {
+    wss.clients.forEach(function each(client: any) {
+      const blockUpdatePayload: WSCSLIPayload = {
         type: 'block',
         data: latestHeight
       }
@@ -116,8 +120,8 @@ export const Dashboard = ({screen, client, wss }) => {
       setTxHashes(txHashes => {
         // boy, is this stupid
         // Let external panes know, too
-        wss.clients.forEach(function each(client) {
-          const txUpdatePayload: wsCSLIPayload = {
+        wss.clients.forEach(function each(client: any) {
+          const txUpdatePayload: WSCSLIPayload = {
             type: 'tx',
             identifier: 'nada',
             data: null
@@ -148,17 +152,28 @@ export const Dashboard = ({screen, client, wss }) => {
       }
       // hardcoded to just show the first
       const readableTxHash = toHex(txHash)
-      let indexedTx: IndexedTx = await client.getTx(readableTxHash)
-      indexedTx.tx = deserializedFirstTx
-      const stringOfSignature = Buffer.from(indexedTx.tx.signatures[0])
-      const base64OfSignature = toBase64(stringOfSignature)
-      indexedTx.tx.signatures[0] = base64OfSignature
-      indexedTx.tx.authInfo.signerInfos[0].publicKey.value = decodePubkey(indexedTx.tx.authInfo.signerInfos[0].publicKey)
+      const indexedTx: IndexedTx = await client.getTx(readableTxHash)
+      let decodedTransaction: DecodedTransaction = {
+        ...indexedTx,
+        tx: {
+          ...deserializedFirstTx,
+          signatures: deserializedFirstTx.signatures.map(signatureBytes => toBase64(Buffer.from(signatureBytes))),
+          authInfo: {
+            ...deserializedFirstTx.authInfo,
+            signerInfos: deserializedFirstTx.authInfo.signerInfos.map(info => {
+              return {
+                ...info,
+                publicKey: info.publicKey ? {...info.publicKey, value: decodePubkey(info.publicKey) } : undefined
+              }
+            })
+          }
+        }
+      }
       if (indexedTx.rawLog) {
         // Wasm messages may not have this
         if (isJSON(indexedTx.rawLog)) {
           d('rawlog', indexedTx.rawLog)
-          indexedTx.rawLog = JSON.parse(indexedTx.rawLog)
+          decodedTransaction.rawLog = JSON.parse(indexedTx.rawLog)
         }
       }
 
@@ -167,15 +182,15 @@ export const Dashboard = ({screen, client, wss }) => {
       const txDataColors = await jq.run('.', indexedTx, { input: 'json', color: true})
       // whole shebang, keep the line below for a bit longer, please
       // const fullIndexedTx = util.inspect(indexedTx, false, null, true)
-      const fullIndexedTx = indexedTx.tx
+      const fullIndexedTx = decodedTransaction.tx
 
       // Fire off a websocket message
-      const txUpdatePayload: wsCSLIPayload = {
+      const txUpdatePayload: WSCSLIPayload = {
         type: 'tx',
         identifier: indexedTx.hash,
         data: fullIndexedTx
       }
-      wss.clients.forEach(function each(client) {
+      wss.clients.forEach(function each(client: any) {
         if (lastTxWebsocketMessage.identifier !== txUpdatePayload.identifier) {
           // this is a bad way to do it, my brain hurts tho
           client.send(JSON.stringify(txUpdatePayload))
@@ -198,7 +213,7 @@ export const Dashboard = ({screen, client, wss }) => {
     }, 5000)
   }, []);
 
-  const navigatePane = useCallback(key => {
+  const navigatePane = useCallback((key: string) => {
     switch (key) {
       case 'tab':
         // Sets focus to next pane index
@@ -268,7 +283,7 @@ export const Dashboard = ({screen, client, wss }) => {
   }, [moveDirection])
 
   // This keeps the selection on the same block, for DevX
-  useEffect(async () => {
+  useEffect(() => {
     setSelectBlockIdx(selectBlockIdx => {
       // d('debugging current selectBlockIdx', selectBlockIdx)
       let newSelectBlockIdx
@@ -290,7 +305,7 @@ export const Dashboard = ({screen, client, wss }) => {
   //  - user pressed arrow keys
   useEffect(() => {
     // TODO: this was helpful
-    checkForTransactionsInBlock(selectBlockIdx, blockHeights)
+    checkForTransactionsInBlock()
   }, [selectBlockIdx, blockHeights])
 
   return (
