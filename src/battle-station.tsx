@@ -7,29 +7,21 @@ import { decodeTxRaw, DecodedTxRaw, decodePubkey } from '@cosmjs/proto-signing'
 import { toHex, toBase64 } from '@cosmjs/encoding'
 import { sha256 } from "@cosmjs/crypto";
 import blessed from 'blessed'
-import { isMsgExecuteEncodeObject, isMsgStoreCodeEncodeObject, isMsgInstantiateContractEncodeObject, isMsgUpdateAdminEncodeObject, isMsgClearAdminEncodeObject, isMsgMigrateEncodeObject } from "@cosmjs/cosmwasm-stargate";
-import { IndexedTx } from '@cosmjs/stargate'
-import {
-  MsgClearAdmin,
-  MsgExecuteContract,
-  MsgInstantiateContract,
-  MsgMigrateContract,
-  MsgStoreCode,
-  MsgUpdateAdmin,
-} from "cosmjs-types/cosmwasm/wasm/v1/tx";
-import { isMsgSendEncodeObject, MsgSendEncodeObject } from "@cosmjs/stargate";
+import { CosmWasmClient, isMsgExecuteEncodeObject } from "@cosmjs/cosmwasm-stargate";
+import { isMsgSendEncodeObject } from '@cosmjs/stargate'
+import { MsgExecuteContract } from "cosmjs-types/cosmwasm/wasm/v1/tx";
+import { Server } from 'ws'
 import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx";
 import { Debuggah } from "./panes/debug/debug";
 import * as jq from 'node-jq'
 import * as fs from 'fs'
 import WSCSLIPayload from './utils/websockets'
-import * as util from 'util'
 import DecodedTransaction from './utils/DecodedTransaction'
 
 interface DashboardProps {
   screen: blessed.Widgets.Screen
-  client: any,
-  wss: any
+  client: CosmWasmClient
+  wss: Server
 }
 
 export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
@@ -38,7 +30,7 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
     type: "tx",
     data: null
   }
-  const totalPanes = 3 // let's not hardcode this
+  const totalPanes = 4 // let's not hardcode this
   const [moveDirection, setMoveDirection] = useState({
     nonce: 0,
     direction: '' // This will update on arrow key presses
@@ -82,25 +74,31 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
   }
 
   const checkForNewBlock = async () => {
-    const latestHeight = await client.getHeight()
-    // Make sure we're not polling so frequently that we get the same height
-    if (blockHeights && latestHeight === blockHeights[blockHeights.length - 1]) return
-    wss.clients.forEach(function each(client: any) {
-      const blockUpdatePayload: WSCSLIPayload = {
-        type: 'block',
-        data: latestHeight
-      }
-      client.send(JSON.stringify(blockUpdatePayload))
-    });
-
-    const latestBlockDetails = await client.getBlock(latestHeight)
-    const blockHasTransactions = latestBlockDetails.txs.length !== 0
-    const blockLabel = blockHasTransactions ? latestHeight.toString() : `${latestHeight} (empty)`
-
-    setBlockHeights(blockHeights => {
-      const updatedBlockHeights = [blockLabel, ...blockHeights]
-      return updatedBlockHeights
-    });
+    d('check for new block')
+    try {
+      const latestHeight = await client.getHeight()
+      d('latestHeight', latestHeight)
+      // Make sure we're not polling so frequently that we get the same height
+      if (blockHeights && latestHeight === blockHeights[blockHeights.length - 1]) return
+      wss.clients.forEach(function each(client: any) {
+        const blockUpdatePayload: WSCSLIPayload = {
+          type: 'block',
+          data: latestHeight
+        }
+        client.send(JSON.stringify(blockUpdatePayload))
+      });
+  
+      const latestBlockDetails = await client.getBlock(latestHeight)
+      const blockHasTransactions = latestBlockDetails.txs.length !== 0
+      const blockLabel = blockHasTransactions ? latestHeight.toString() : `${latestHeight} (empty)`
+  
+      setBlockHeights(blockHeights => {
+        const updatedBlockHeights = [blockLabel, ...blockHeights]
+        return updatedBlockHeights
+      });
+    } catch (error) {
+      d("failed to check for new block", error)
+    }
   }
 
   const checkForTransactionsInBlock = async () => {
@@ -135,9 +133,10 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
     const blockDetails = await client.getBlock(Number(blockHeight))
 
     const blockHasTransactions = blockDetails.txs.length !== 0
-
     if (blockHasTransactions) {
+      d("block has transactions")
       const firstTx: DecodedTxRaw = decodeTxRaw(blockDetails.txs[0])
+      d("block decoded")
       let deserializedFirstTx = firstTx
       const txHash = sha256(blockDetails.txs[0])
       const firstMessage = firstTx.body.messages[0]
@@ -150,59 +149,64 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
         msg.msg = JSON.parse(Buffer.from(msg.msg).toString())
         deserializedFirstTx.body.messages[0].value = msg
       }
+      d("message decoded", txHash)
       // hardcoded to just show the first
       const readableTxHash = toHex(txHash)
-      const indexedTx: IndexedTx = await client.getTx(readableTxHash)
-      let decodedTransaction: DecodedTransaction = {
-        ...indexedTx,
-        tx: {
-          ...deserializedFirstTx,
-          signatures: deserializedFirstTx.signatures.map(signatureBytes => toBase64(Buffer.from(signatureBytes))),
-          authInfo: {
-            ...deserializedFirstTx.authInfo,
-            signerInfos: deserializedFirstTx.authInfo.signerInfos.map(info => {
-              return {
-                ...info,
-                publicKey: info.publicKey ? {...info.publicKey, value: decodePubkey(info.publicKey) } : undefined
-              }
-            })
+      const indexedTx = await client.getTx(readableTxHash)
+      d("got tx")
+      if (indexedTx) {
+        let decodedTransaction: DecodedTransaction = {
+          ...indexedTx,
+          tx: {
+            ...deserializedFirstTx,
+            signatures: deserializedFirstTx.signatures.map(signatureBytes => toBase64(Buffer.from(signatureBytes))),
+            authInfo: {
+              ...deserializedFirstTx.authInfo,
+              signerInfos: deserializedFirstTx.authInfo.signerInfos.map(info => {
+                return {
+                  ...info,
+                  publicKey: info.publicKey ? {...info.publicKey, value: decodePubkey(info.publicKey) } : undefined
+                }
+              })
+            }
           }
         }
-      }
-      if (indexedTx.rawLog) {
-        // Wasm messages may not have this
-        if (isJSON(indexedTx.rawLog)) {
-          d('rawlog', indexedTx.rawLog)
-          decodedTransaction.rawLog = JSON.parse(indexedTx.rawLog)
+        if (indexedTx.rawLog) {
+          // Wasm messages may not have this
+          if (isJSON(indexedTx.rawLog)) {
+            d('rawlog', indexedTx.rawLog)
+            decodedTransaction.rawLog = JSON.parse(indexedTx.rawLog)
+          }
         }
-      }
-
-      setTxHashes([readableTxHash])
-      // jq with colors
-      const txDataColors = await jq.run('.', indexedTx, { input: 'json', color: true})
-      // whole shebang, keep the line below for a bit longer, please
-      // const fullIndexedTx = util.inspect(indexedTx, false, null, true)
-      const fullIndexedTx = decodedTransaction.tx
-
-      // Fire off a websocket message
-      const txUpdatePayload: WSCSLIPayload = {
-        type: 'tx',
-        identifier: indexedTx.hash,
-        data: fullIndexedTx
-      }
-      wss.clients.forEach(function each(client: any) {
-        if (lastTxWebsocketMessage.identifier !== txUpdatePayload.identifier) {
-          // this is a bad way to do it, my brain hurts tho
-          client.send(JSON.stringify(txUpdatePayload))
+        d("massaged tx")
+  
+        setTxHashes([readableTxHash])
+        // jq with colors
+        const txDataColors = await jq.run('.', indexedTx, { input: 'json', color: true})
+        // whole shebang, keep the line below for a bit longer, please
+        // const fullIndexedTx = util.inspect(indexedTx, false, null, true)
+        const fullIndexedTx = decodedTransaction.tx
+  
+        // Fire off a websocket message
+        const txUpdatePayload: WSCSLIPayload = {
+          type: 'tx',
+          identifier: indexedTx.hash,
+          data: fullIndexedTx
         }
-      });
-      lastTxWebsocketMessage = {
-        type: 'tx',
-        identifier: indexedTx.hash,
-        data: null
+        wss.clients.forEach(function each(client: any) {
+          if (lastTxWebsocketMessage.identifier !== txUpdatePayload.identifier) {
+            // this is a bad way to do it, my brain hurts tho
+            client.send(JSON.stringify(txUpdatePayload))
+          }
+        });
+        lastTxWebsocketMessage = {
+          type: 'tx',
+          identifier: indexedTx.hash,
+          data: null
+        }
+  
+        setTxData(txDataColors)
       }
-
-      setTxData(txDataColors)
     }
   }
 
@@ -326,6 +330,7 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
       />
       <Debuggah
         debugEntries={debugEntries}
+        isFocused={focusedPane === 3}
       />
     </>
   );

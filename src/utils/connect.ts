@@ -31,7 +31,7 @@ export const attemptConnect = async () => {
     console.error('Issue creating the websocket server', e)
   }
 
-  let client
+  let client: CosmWasmClient | undefined = undefined
   try {
     console.log('aloha2')
     client = await CosmWasmClient.connect(rpcEndpoint)
