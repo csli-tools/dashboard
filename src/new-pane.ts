@@ -3,7 +3,7 @@ require('@babel/register')({
 });
 // args: means when you run "npm run pane aloha honua"
 // "aloha" is the zeroth index, "honua" is the first index
-const supportedPanes = {
+const supportedPanes: {[key: string]: string} = {
    'msg': 'Shows the Messages for the selected transaction',
 };
 const supportedPanesList = Object.keys(supportedPanes).map(paneName => `⚛️  ${paneName} — ${supportedPanes[paneName]}`).join('\n')
@@ -25,4 +25,4 @@ if (Object.keys(supportedPanes).indexOf(paneName) === -1) {
 }
 
 // The files in that directory will be the [command name].js, basically
-require('./src/panes/breakout-panes/' + paneName);
+require('./panes/breakout-panes/' + paneName);

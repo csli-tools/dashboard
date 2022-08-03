@@ -5,7 +5,7 @@
   "main": "index.ts",
   "scripts": {
     "start": "ts-node-dev src",
-    "pane": "node --no-experimental-fetch new-pane.js",
+    "pane": "ts-node-dev src/new-pane.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [

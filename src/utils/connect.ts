@@ -34,6 +34,7 @@ export const attemptConnect = async () => {
   let client: CosmWasmClient | undefined = undefined
   try {
     console.log('aloha2')
+    console.log(rpcEndpoint)
     client = await CosmWasmClient.connect(rpcEndpoint)
     console.log('aloha3')
   } catch (e: any) {
