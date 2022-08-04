@@ -1,5 +1,5 @@
 // Connected. Proceed to party…
-import React, {useState, useEffect, useCallback} from 'react'
+import React, {useState, useEffect, useCallback, useRef} from 'react'
 import { TxHashes } from './panes/transactions/tx-hashes'
 import { TxDetails } from './panes/transactions/tx-details'
 import { BlockDetails } from './panes/blocks/block-details'
@@ -209,11 +209,14 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
       }
     }
   }
-
+  const intervalRef = useRef(checkForNewBlock)
+  useEffect(() => {
+    intervalRef.current = checkForNewBlock
+  }, [checkForNewBlock])
   // React's silly way of saying, "do this once, yo"
   useEffect(() => {
     setInterval(async () => {
-      await checkForNewBlock()
+      await intervalRef.current()
     }, 5000)
   }, []);
 
