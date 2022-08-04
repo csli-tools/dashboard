@@ -1,4 +1,4 @@
-import { Fee, ModeInfo } from "cosmjs-types/cosmos/tx/v1beta1/tx"
+import { Fee, ModeInfo, TxBody } from "cosmjs-types/cosmos/tx/v1beta1/tx"
 import Long from "long"
 
 export default interface DecodedTransaction {
