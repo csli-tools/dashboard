@@ -2,7 +2,7 @@
 import React, {useState, useEffect, useCallback, useRef} from 'react'
 import { TxHashes } from './panes/transactions/tx-hashes'
 import { TxDetails } from './panes/transactions/tx-details'
-import { BlockDetails } from './panes/blocks/block-details'
+import BlockDetailsPane from './panes/blocks/block-details'
 import { decodeTxRaw, DecodedTxRaw, decodePubkey } from '@cosmjs/proto-signing'
 import { toHex, toBase64 } from '@cosmjs/encoding'
 import { sha256 } from "@cosmjs/crypto";
@@ -15,8 +15,11 @@ import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx";
 import { Debuggah } from "./panes/debug/debug";
 import * as jq from 'node-jq'
 import * as fs from 'fs'
+
 import WSCSLIPayload from './utils/websockets'
-import DecodedTransaction from './utils/DecodedTransaction'
+import DecodedTransaction from './model/DecodedTransaction'
+import Keybind from './services/Keybind'
+import BlockDetails from './model/BlockDetails'
 
 interface DashboardProps {
   screen: blessed.Widgets.Screen
@@ -40,7 +43,7 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
   // TODO: we're never setting this yet
   const [selectTxIdx, setSelectTxIdx] = useState(0)
   const [txHashes, setTxHashes] = useState<any[]>([]);
-  const [blockHeights, setBlockHeights] = useState<any[]>([]);
+  const [blockHeights, setBlockHeights] = useState<BlockDetails[]>([]);
   const [debugEntries, setDebugEntries] = useState<string[]>([]);
   const [txData, setTxData] = useState<any>('(Use tab to change panes. Arrow keys to navigate.)');
 
@@ -63,7 +66,7 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
     } else {
       messageContent = stuff
     }
-    setDebugEntries([`${message} ${messageContent}`, ...debugEntries])
+    setDebugEntries([...debugEntries, `${message} ${messageContent}`])
 
     // Write to logs if they want
     if (pleaseWriteToLogs) {
@@ -79,7 +82,7 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
       const latestHeight = await client.getHeight()
       d('latestHeight', latestHeight)
       // Make sure we're not polling so frequently that we get the same height
-      if (blockHeights && latestHeight === blockHeights[blockHeights.length - 1]) return
+      if (blockHeights.length > 0 && latestHeight === blockHeights[0].height) return
       wss.clients.forEach(function each(client: any) {
         const blockUpdatePayload: WSCSLIPayload = {
           type: 'block',
@@ -89,11 +92,9 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
       });
   
       const latestBlockDetails = await client.getBlock(latestHeight)
-      const blockHasTransactions = latestBlockDetails.txs.length !== 0
-      const blockLabel = blockHasTransactions ? latestHeight.toString() : `${latestHeight} (empty)`
   
       setBlockHeights(blockHeights => {
-        const updatedBlockHeights = [blockLabel, ...blockHeights]
+        const updatedBlockHeights = [{height: latestHeight, transactions: [...latestBlockDetails.txs]}, ...blockHeights]
         return updatedBlockHeights
       });
     } catch (error) {
@@ -113,7 +114,7 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
 
     const blockHeight = bh[blockIndex]
     if (!blockHeight) return // ditto with my React silliness
-    if (blockHeight.includes('empty')) {
+    if (blockHeight.transactions.length === 0) {
       setTxData('')
       setTxHashes(txHashes => {
         // boy, is this stupid
@@ -220,31 +221,27 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
     }, 5000)
   }, []);
 
-  const navigatePane = useCallback((key: string) => {
-    switch (key) {
-      case 'tab':
-        // Sets focus to next pane index
-        setFocusedPane(focusedPane => (focusedPane + 1) % (totalPanes))
-        break;
-      case 'up':
-      case 'down':
-      case 'left':
-      case 'right':
-        setMoveDirection(num => {
-          // We use a nonce so React refreshes, basically
-          // Otherwise, hitting the same arrow key twice wouldn't fire off stuff
-          return {
-            nonce: num.nonce + 1,
-            direction: key
-          }
-        })
-        break;
+  const navigatePane = useCallback((key: blessed.Widgets.Events.IKeyEventArg) => {
+    if (key.name !== "tab") {
+      return
     }
-  }, []);
+    setFocusedPane(focusedPane => (focusedPane + 1) % (totalPanes))
+  }, [focusedPane]);
+  
+  const navigatePaneRef = useRef(navigatePane)
+  useEffect(() => {
+    navigatePaneRef.current = navigatePane
+  }, [navigatePane])
+  
+  useEffect(() => {
+    Keybind.sharedInstance().emitter.on("key", (key: blessed.Widgets.Events.IKeyEventArg) => {
+      navigatePaneRef.current(key)
+    })
+  }, [])
 
   useEffect(() => {
-    screen.key(['tab', 'up', 'down', 'left', 'right', 'space', 'o', 'w'], (_, key) => navigatePane(key.name))
-  }, [navigatePane])
+    screen.key(['tab', 'up', 'down', 'left', 'right', 'space', 'o', 'w'], (_, key) => Keybind.sharedInstance().keyPressed(key))
+  }, [])
 
   useEffect(() => {
     switch (focusedPane) {
@@ -317,9 +314,8 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
 
   return (
     <>
-      <BlockDetails
+      <BlockDetailsPane
         blockHeights={blockHeights}
-        selectBlockIdx={selectBlockIdx}
         isFocused={focusedPane === 0}
       />
       <TxHashes
