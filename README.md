@@ -29,11 +29,11 @@ If you've already run these or similar commands and wish to start a fresh blockc
 
 ```sh
 wasmd init jabroni --chain-id cc-23
-wasmd keys add deployer
-wasmd keys show deployer
+wasmd keys add validator
+wasmd keys show validator
 # Copy the address and replace the Juno address in the next command
-wasmd add-genesis-account wasm1fm3jajgrz88llawp5clfcfld9t0y82vpn48l8h 10000000000000000000000000stake
-wasmd gentx deployer 1000000000000000stake --chain-id cc-23
+wasmd add-genesis-account $(wasmd keys show validator -a) 10000000000000000000000000stake
+wasmd gentx validator 1000000000000000stake --chain-id cc-23
 wasmd collect-gentxs
 wasmd start
 ```
@@ -67,18 +67,20 @@ This will connect to the dashboard using [websockets](https://developer.mozilla.
 
 ### Execute a simple Bank Message
 
-Let's send the smallest amount of `stake` tokens from our `deployer` to another account.
+Let's send the smallest amount of `stake` tokens from our `validator` to another account.
 
-First, we'll create an account named `stove` by running:
+First, we'll create an account named `alice` by running:
 
-    wasmd keys add stove
+    wasmd keys add alice
 
 and in the future we can get the wasm address with:
 
-    wasm keys show stove
+    wasm keys show alice
 
-Let's send *from* `deployer` *to* `stove` with:
+Let's send *from* `validator` *to* `alice` with:
 
-    wasmd tx bank send wasm123deployeraddress456 wasm987stoveaddress654 1stake --chain-id cc-23 -y --output json
+    wasmd tx bank send $(wasmd keys show validator -a) $(wasmd keys show alice -a) 1stake --chain-id cc-23 -y --output json
+
+**Note**: if you're on Windows, you may need to fiddle with the command above, replacing the `$(…)` code with the wasm addresses for `validator` and `alice`.
 
 You should see the Bank Message in the breakout pane, and the transaction information come through.
