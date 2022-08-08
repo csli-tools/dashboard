@@ -34,12 +34,9 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
     data: null
   }
   const totalPanes = 4 // let's not hardcode this
-  const [moveDirection, setMoveDirection] = useState({
-    nonce: 0,
-    direction: '' // This will update on arrow key presses
-  })
   const [focusedPane, setFocusedPane] = useState(0)
-  const [selectBlockIdx, setSelectBlockIdx] = useState(0)
+  const [selectedBlock, setSelectedBlock] = useState<BlockDetails | undefined>(undefined)
+  const [selectedTransaction, setSelectedTransaction] = useState<undefined>(undefined)
   // TODO: we're never setting this yet
   const [selectTxIdx, setSelectTxIdx] = useState(0)
   const [txHashes, setTxHashes] = useState<any[]>([]);
@@ -58,15 +55,23 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
     return !whoops
   }
 
+  const debugEntriesRef = useRef(debugEntries)
+  useEffect(() => {
+    debugEntriesRef.current = debugEntries
+  }, [debugEntries])
+  
   // Debugger window
-  const d = (message: any, stuff: any | null = null, pleaseWriteToLogs = false) => {
+  const d = useCallback((message: any, stuff: any | null = null, pleaseWriteToLogs = false) => {
+    if (!debugEntriesRef.current) {
+      return
+    }
     let messageContent
     if (stuff && isJSON(stuff)) {
       messageContent = JSON.stringify(stuff)
     } else {
       messageContent = stuff
     }
-    setDebugEntries([...debugEntries, `${message} ${messageContent}`])
+    setDebugEntries([...debugEntriesRef.current, `${message} ${messageContent}`])
 
     // Write to logs if they want
     if (pleaseWriteToLogs) {
@@ -74,7 +79,7 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
       // TODO: put this in a home directory
       fs.appendFile('csli-log.txt', `${messageContent}\n`, 'utf8', () => {});
     }
-  }
+  }, [])
 
   const checkForNewBlock = async () => {
     d('check for new block')
@@ -102,19 +107,15 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
     }
   }
 
-  const checkForTransactionsInBlock = async () => {
-    // I don't understand React, so I have this silly guard.
-    // Please send halp, anon devs
-    let blockIndex = selectBlockIdx;
-    let bh = blockHeights;
-    if (bh.length === 0 || !bh) {
-      d('thought i should return early');
+  const checkForTransactionsInBlock = useCallback(async (block?: BlockDetails) => {
+    d(block)
+    const blockInfo = block
+    if (!blockInfo) {
+      d('No blocks found yet')
       return
     }
-
-    const blockHeight = bh[blockIndex]
-    if (!blockHeight) return // ditto with my React silliness
-    if (blockHeight.transactions.length === 0) {
+    
+    if (blockInfo.transactions.length === 0) {
       setTxData('')
       setTxHashes(txHashes => {
         // boy, is this stupid
@@ -131,7 +132,7 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
       })
       return
     }
-    const blockDetails = await client.getBlock(Number(blockHeight))
+    const blockDetails = await client.getBlock(blockInfo.height)
 
     const blockHasTransactions = blockDetails.txs.length !== 0
     if (blockHasTransactions) {
@@ -209,7 +210,8 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
         setTxData(txDataColors)
       }
     }
-  }
+  }, [])
+  
   const intervalRef = useRef(checkForNewBlock)
   useEffect(() => {
     intervalRef.current = checkForNewBlock
@@ -243,80 +245,22 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
     screen.key(['tab', 'up', 'down', 'left', 'right', 'space', 'o', 'w'], (_, key) => Keybind.sharedInstance().keyPressed(key))
   }, [])
 
-  useEffect(() => {
-    switch (focusedPane) {
-      case 0:
-        switch (moveDirection.direction) {
-          case 'up':
-            // Go up one unless we're at the top
-            setSelectBlockIdx(selectBlockIdx => {
-              if (selectBlockIdx > 0) {
-                if (selectBlockIdx >= blockHeights.length) selectBlockIdx = blockHeights.length - 1
-                return (selectBlockIdx - 1)
-              } else return selectBlockIdx
-            })
-            break;
-          case 'down':
-            // Go down one unless we're at the bottom
-            setSelectBlockIdx(selectBlockIdx => {
-              if (selectBlockIdx < blockHeights.length - 1) {
-                return (selectBlockIdx + 1)
-              } else return selectBlockIdx
-            })
-            break;
-          case 'left':
-            // Go all the way to the top
-            setSelectBlockIdx(0)
-            break;
-          case 'right':
-            // Go down two
-            setSelectBlockIdx(selectBlockIdx => {
-              if (selectBlockIdx < blockHeights.length - 2) {
-                return (selectBlockIdx + 2)
-              } else return selectBlockIdx
-            })
-            break;
-        }
-        break;
-      case 1:
-        d('pane 1: pressed ', moveDirection.direction)
-        break;
-      case 2:
-        d('pane 2: pressed ', moveDirection.direction)
-    }
-  }, [moveDirection])
-
-  // This keeps the selection on the same block, for DevX
-  useEffect(() => {
-    setSelectBlockIdx(selectBlockIdx => {
-      // d('debugging current selectBlockIdx', selectBlockIdx)
-      let newSelectBlockIdx
-      if (blockHeights.length === 1) {
-        newSelectBlockIdx = 0;
-      } else if (selectBlockIdx < blockHeights.length) {
-        newSelectBlockIdx = selectBlockIdx + 1
-      } else {
-        newSelectBlockIdx = selectBlockIdx
-      }
-
-      return newSelectBlockIdx
-    })
-  }, [blockHeights])
-
-
   // Fires whenever:
   //  - a new block is added, and selection changes to keep focus
   //  - user pressed arrow keys
   useEffect(() => {
     // TODO: this was helpful
-    checkForTransactionsInBlock()
-  }, [selectBlockIdx, blockHeights])
+    checkForTransactionsInBlock(selectedBlock)
+  }, [checkForTransactionsInBlock, selectedBlock])
 
   return (
     <>
       <BlockDetailsPane
         blockHeights={blockHeights}
         isFocused={focusedPane === 0}
+        selectBlock={(block) => {
+          setSelectedBlock(block)
+        }}
       />
       <TxHashes
         txHashes={txHashes}

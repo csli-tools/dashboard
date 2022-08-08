@@ -7,9 +7,10 @@ import Keybind from '../../services/Keybind'
 interface BlockDetailsPaneProps {
   blockHeights: BlockDetails[]
   isFocused: boolean
+  selectBlock: (block: BlockDetails) => void
 }
 
-const BlockDetailsPane: React.FC<BlockDetailsPaneProps> = ({blockHeights, isFocused }) => {
+const BlockDetailsPane: React.FC<BlockDetailsPaneProps> = ({blockHeights, isFocused, selectBlock }) => {
   
   const [selectedIndex, setSelectedIndex] = useState<number>(0)
   const [selectedBlock, setSelectedBlock] = useState<BlockDetails | undefined>(undefined)
@@ -45,20 +46,17 @@ const BlockDetailsPane: React.FC<BlockDetailsPaneProps> = ({blockHeights, isFocu
     if (!ref.current) {
       return
     }
-    if (!blockRef.current) {
-      return
-    }
     if (blockHeights.length === 0) {
       return
     }
     if (key.name !== "up" && key.name !== "down") {
       return
     }
-    if (selectedIndex === undefined) {
-      setSelectedIndex(0)
-      setSelectedBlock(blockHeights[0])
+    
+    if (!blockRef.current) {
       return
     }
+    
     let index: number
     const selectedBlockIndex = blockIndex(blockRef.current) // use a reference here so we don't end up in an infinite loop with selectedBlock and selectedIndex updating eachother indefinitely
     if (selectedBlockIndex === undefined) {
@@ -71,7 +69,8 @@ const BlockDetailsPane: React.FC<BlockDetailsPaneProps> = ({blockHeights, isFocu
     }
     setSelectedIndex(index)
     setSelectedBlock(blockHeights[index])
-    ref.current.select(index)
+    selectBlock(blockHeights[index])
+    ref.current.select(index)    
   }, [selectedIndex, blockHeights, isFocused]);
   
   const blockRef = useRef(selectedBlock)
@@ -84,6 +83,9 @@ const BlockDetailsPane: React.FC<BlockDetailsPaneProps> = ({blockHeights, isFocu
       return
     }
     if (!blockRef.current) {
+      setSelectedIndex(0)
+      setSelectedBlock(blockHeights[0])
+      selectBlock(blockHeights[0])
       return
     }
     const index = blockIndex(blockRef.current) // use a reference here so we don't end up in an infinite loop with selectedBlock and selectedIndex updating eachother indefinitely
@@ -130,7 +132,6 @@ const BlockDetailsPane: React.FC<BlockDetailsPaneProps> = ({blockHeights, isFocu
         scrollable={true}
         ref={ref}
         focusable={true}
-        keys={true}
         items={blockHeights.map(details => `${details.height} ${details.transactions.length === 0 ? '(empty)' : ''}`)}
       />
     
