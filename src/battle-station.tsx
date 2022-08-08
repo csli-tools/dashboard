@@ -210,7 +210,7 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
         setTxData(txDataColors)
       }
     }
-  }, [])
+  }, [wss])
   
   const intervalRef = useRef(checkForNewBlock)
   useEffect(() => {
