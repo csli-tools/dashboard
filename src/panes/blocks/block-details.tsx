@@ -45,6 +45,9 @@ const BlockDetailsPane: React.FC<BlockDetailsPaneProps> = ({blockHeights, isFocu
     if (!ref.current) {
       return
     }
+    if (!blockRef.current) {
+      return
+    }
     if (blockHeights.length === 0) {
       return
     }
@@ -57,10 +60,14 @@ const BlockDetailsPane: React.FC<BlockDetailsPaneProps> = ({blockHeights, isFocu
       return
     }
     let index: number
+    const selectedBlockIndex = blockIndex(blockRef.current) // use a reference here so we don't end up in an infinite loop with selectedBlock and selectedIndex updating eachother indefinitely
+    if (selectedBlockIndex === undefined) {
+      return
+    }
     if (key.name === "up") {
-      index = Math.max(0, selectedIndex - 1)
+      index = Math.max(0, selectedBlockIndex - 1)
     } else {
-      index = Math.min(blockHeights.length, selectedIndex + 1)
+      index = Math.min(blockHeights.length, selectedBlockIndex + 1)
     }
     setSelectedIndex(index)
     setSelectedBlock(blockHeights[index])
