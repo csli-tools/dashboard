@@ -4,8 +4,8 @@
   "description": "Cosmos blockchain's CosmWasm dashboard using JavaScript blessed libraries",
   "main": "index.ts",
   "scripts": {
-    "start": "nodemon --watch 'src/**/*' -e ts,tsx --exec 'npm run lint && ts-node' ./src/index.ts",
-    "pane": "nodemon --watch 'src/new-pane.ts' -e ts,tsx --exec 'npm run lint:pane && ts-node' ./src/new-pane.ts",
+    "start": "nodemon --watch 'src/**/*' -e ts,tsx --exec 'npm run lint && ts-node' ./src/index.ts -I",
+    "pane": "nodemon --watch 'src/new-pane.ts' -e ts,tsx --exec 'npm run lint:pane && ts-node' ./src/new-pane.ts -I",
     "lint": "eslint src",
     "lint:pane": "eslint src/new-pane.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
