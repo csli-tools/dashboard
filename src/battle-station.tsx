@@ -184,7 +184,7 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
   
         setTxHashes([readableTxHash])
         // jq with colors
-        const txDataColors = await jq.run('.', indexedTx, { input: 'json', color: true})
+        const txDataColors = await jq.run('.', decodedTransaction, { input: 'json', color: true})
         // whole shebang, keep the line below for a bit longer, please
         // const fullIndexedTx = util.inspect(indexedTx, false, null, true)
         const fullIndexedTx = decodedTransaction.tx
