@@ -1,7 +1,11 @@
 import React from "react";
 
-export const TxDetails = ({ txData, amFocused }) => {
-  const styles = {
+interface TxDetailsProps {
+  txData: any
+  isFocused: boolean
+}
+export const TxDetails: React.FC<TxDetailsProps> = ({ txData, isFocused }) => {
+  const styles: any = {
     border: {
       type: 'line',
       bottom: null,
@@ -10,7 +14,7 @@ export const TxDetails = ({ txData, amFocused }) => {
     style: {
       border: {
         fg: '#eb5367',
-        bg: amFocused ? 'yellow' : null
+        bg: isFocused ? 'yellow' : null
       }
     }
   }

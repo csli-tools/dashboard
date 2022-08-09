@@ -1,7 +1,14 @@
 import React from "react";
+import blessed from "blessed"
 
-export const BlockDetails = ({blockHeights, selectBlockIdx, amFocused }) => {
-  const styles = {
+interface TxHashesProps {
+  txHashes: any
+  selectTxIdx: any
+  isFocused: boolean
+}
+
+export const TxHashes: React.FC<TxHashesProps> = ({txHashes, selectTxIdx, isFocused }) => {
+  const styles: any = {
     border: {
       type: 'line',
       bottom: null,
@@ -10,7 +17,7 @@ export const BlockDetails = ({blockHeights, selectBlockIdx, amFocused }) => {
     style: {
       border: {
         fg: '#eb5367',
-        bg: amFocused ? 'yellow' : null
+        bg: isFocused ? 'yellow' : null
       }
     },
     padding: {
@@ -24,10 +31,10 @@ export const BlockDetails = ({blockHeights, selectBlockIdx, amFocused }) => {
   return (
     <box
       keys={true}
-      label="Blocks"
+      label="Transaction hashes"
+      left="50%"
       width="50%"
       height="30%"
-      autoPadding={true}
       class={styles}>
       <list
         style={
@@ -39,9 +46,8 @@ export const BlockDetails = ({blockHeights, selectBlockIdx, amFocused }) => {
           }
         }
         keys={true}
-        items={blockHeights}
-        selected={selectBlockIdx}
-        scroll={selectBlockIdx}
+        items={txHashes}
+        selected={selectTxIdx}
       />
     </box>
   );
