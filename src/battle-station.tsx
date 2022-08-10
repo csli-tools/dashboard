@@ -15,7 +15,7 @@ import { TxHashes } from './panes/transactions/tx-hashes'
 import { TxDetails } from './panes/transactions/tx-details'
 import BlockDetailsPane from './panes/blocks/block-details'
 import { Debuggah } from "./panes/debug/debug";
-import { d } from './services/d'
+import { d } from './services/DebugLog'
 import { getJSON } from './utils/json'
 import WSCSLIPayload from './utils/websockets'
 import DecodedTransaction from './model/DecodedTransaction'
