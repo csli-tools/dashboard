@@ -4,11 +4,10 @@ import blessed from "blessed"
 import DebugLog from "../../services/DebugLog"
 
 interface DebuggahProps {
-  debugEntries: any[]
   isFocused: boolean
 }
 
-export const Debuggah: React.FC<DebuggahProps> = ({ debugEntries, isFocused }) => {
+export const Debuggah: React.FC<DebuggahProps> = ({ isFocused }) => {
   const styles: any = {
     border: {
       type: 'line',

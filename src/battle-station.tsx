@@ -42,7 +42,6 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
   const [selectTxIdx, setSelectTxIdx] = useState(0)
   const [txHashes, setTxHashes] = useState<any[]>([]);
   const [blockHeights, setBlockHeights] = useState<BlockDetails[]>([]);
-  const debugEntries = useState<string[]>([]);
   const [txData, setTxData] = useState<any>('(Use tab to change panes. Arrow keys to navigate.)');
 
   const checkForNewBlock = async () => {
@@ -237,7 +236,6 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
         isFocused={focusedPane === 2}
       />
       <Debuggah
-        debugEntries={debugEntries}
         isFocused={focusedPane === 3}
       />
     </>
