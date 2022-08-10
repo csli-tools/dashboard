@@ -1,8 +1,5 @@
 // Connected. Proceed to party…
 import React, {useState, useEffect, useCallback, useRef} from 'react'
-import { TxHashes } from './panes/transactions/tx-hashes'
-import { TxDetails } from './panes/transactions/tx-details'
-import BlockDetailsPane from './panes/blocks/block-details'
 import { decodeTxRaw, DecodedTxRaw, decodePubkey } from '@cosmjs/proto-signing'
 import { toHex, toBase64 } from '@cosmjs/encoding'
 import { sha256 } from "@cosmjs/crypto";
@@ -12,10 +9,14 @@ import { isMsgSendEncodeObject } from '@cosmjs/stargate'
 import { MsgExecuteContract } from "cosmjs-types/cosmwasm/wasm/v1/tx";
 import { Server } from 'ws'
 import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx";
-import { Debuggah } from "./panes/debug/debug";
 import * as jq from 'node-jq'
-import * as fs from 'fs'
 
+import { TxHashes } from './panes/transactions/tx-hashes'
+import { TxDetails } from './panes/transactions/tx-details'
+import BlockDetailsPane from './panes/blocks/block-details'
+import { Debuggah } from "./panes/debug/debug";
+import { d } from './services/DebugLog'
+import { getJSON } from './utils/json'
 import WSCSLIPayload from './utils/websockets'
 import DecodedTransaction from './model/DecodedTransaction'
 import Keybind from './services/Keybind'
@@ -41,45 +42,7 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
   const [selectTxIdx, setSelectTxIdx] = useState(0)
   const [txHashes, setTxHashes] = useState<any[]>([]);
   const [blockHeights, setBlockHeights] = useState<BlockDetails[]>([]);
-  const [debugEntries, setDebugEntries] = useState<string[]>([]);
   const [txData, setTxData] = useState<any>('(Use tab to change panes. Arrow keys to navigate.)');
-
-  const isJSON= (stuff: any) => {
-    let whoops = false
-    // if (typeof stuff === 'string') return false
-    try {
-      JSON.parse(stuff)
-    } catch (e) {
-      whoops = true
-    }
-    return !whoops
-  }
-
-  const debugEntriesRef = useRef(debugEntries)
-  useEffect(() => {
-    debugEntriesRef.current = debugEntries
-  }, [debugEntries])
-  
-  // Debugger window
-  const d = useCallback((message: any, stuff: any | null = null, pleaseWriteToLogs = false) => {
-    if (!debugEntriesRef.current) {
-      return
-    }
-    let messageContent
-    if (stuff && isJSON(stuff)) {
-      messageContent = JSON.stringify(stuff)
-    } else {
-      messageContent = stuff
-    }
-    setDebugEntries([...debugEntriesRef.current, `${message} ${messageContent}`])
-
-    // Write to logs if they want
-    if (pleaseWriteToLogs) {
-      // Thank you for saying please
-      // TODO: put this in a home directory
-      fs.appendFile('csli-log.txt', `${messageContent}\n`, 'utf8', () => {});
-    }
-  }, [])
 
   const checkForNewBlock = async () => {
     d('check for new block')
@@ -175,9 +138,10 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
         }
         if (indexedTx.rawLog) {
           // Wasm messages may not have this
-          if (isJSON(indexedTx.rawLog)) {
+          const json = getJSON(indexedTx.rawLog)
+          if (!!json) {
             d('rawlog', indexedTx.rawLog)
-            decodedTransaction.rawLog = JSON.parse(indexedTx.rawLog)
+            decodedTransaction.rawLog = json
           }
         }
         d("massaged tx")
@@ -272,7 +236,6 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
         isFocused={focusedPane === 2}
       />
       <Debuggah
-        debugEntries={debugEntries}
         isFocused={focusedPane === 3}
       />
     </>

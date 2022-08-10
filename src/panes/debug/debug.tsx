@@ -1,14 +1,13 @@
-import React, { useCallback, useEffect, useRef, useState } from "react"
+import React, { useEffect, useRef } from "react"
 import blessed from "blessed"
 
-import Keybind from '../../services/Keybind'
+import DebugLog from "../../services/DebugLog"
 
 interface DebuggahProps {
-  debugEntries: any[]
   isFocused: boolean
 }
 
-export const Debuggah: React.FC<DebuggahProps> = ({ debugEntries, isFocused }) => {
+export const Debuggah: React.FC<DebuggahProps> = ({ isFocused }) => {
   const styles: any = {
     border: {
       type: 'line',
@@ -38,12 +37,21 @@ export const Debuggah: React.FC<DebuggahProps> = ({ debugEntries, isFocused }) =
       ref.current.focus()
     }
   }, [isFocused])
-  
+
   useEffect(() => {
-    if (ref.current) {
-      ref.current.setContent(debugEntries.join("\n"))
+    const listener = (log: string, messages: string[]) => {
+      if (ref.current) {
+        ref.current.setContent(messages.join("\n"))
+      }
     }
-  }, [debugEntries])
+    DebugLog.sharedInstance().emitter.on("log", listener)
+    if (ref.current) {
+      ref.current.setContent(DebugLog.sharedInstance().debugEntries.join("\n"))
+    }
+    return () => {
+      DebugLog.sharedInstance().emitter.removeListener("log", listener)
+    }
+  }, [])
   
   const ref = useRef<blessed.Widgets.Log>(null)
     
