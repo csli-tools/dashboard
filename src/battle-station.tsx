@@ -14,7 +14,7 @@ import * as jq from 'node-jq'
 import { TxHashes } from './panes/transactions/tx-hashes'
 import { TxDetails } from './panes/transactions/tx-details'
 import BlockDetailsPane from './panes/blocks/block-details'
-import { Debuggah } from "./panes/debug/debug";
+import Debuggah from "./panes/debug/debug";
 import { d } from './services/DebugLog'
 import { getJSON } from './utils/json'
 import WSCSLIPayload from './utils/websockets'
@@ -28,14 +28,13 @@ interface DashboardProps {
   wss: Server
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
+const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
   // so tired
   let lastTxWebsocketMessage: WSCSLIPayload = {
     type: "tx",
     data: null
   }
   const totalPanes = 4 // let's not hardcode this
-  const [focusedPane, setFocusedPane] = useState(0)
   const [selectedBlock, setSelectedBlock] = useState<BlockDetails | undefined>(undefined)
   const [selectedTransaction, setSelectedTransaction] = useState<undefined>(undefined)
   // TODO: we're never setting this yet
@@ -45,10 +44,8 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
   const [txData, setTxData] = useState<any>('(Use tab to change panes. Arrow keys to navigate.)');
 
   const checkForNewBlock = async () => {
-    d('check for new block')
     try {
       const latestHeight = await client.getHeight()
-      d('latestHeight', latestHeight)
       // Make sure we're not polling so frequently that we get the same height
       if (blockHeights.length > 0 && latestHeight === blockHeights[0].height) return
       wss.clients.forEach(function each(client: any) {
@@ -187,26 +184,8 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
     }, 5000)
   }, []);
 
-  const navigatePane = useCallback((key: blessed.Widgets.Events.IKeyEventArg) => {
-    if (key.name !== "tab") {
-      return
-    }
-    setFocusedPane(focusedPane => (focusedPane + 1) % (totalPanes))
-  }, [focusedPane]);
-  
-  const navigatePaneRef = useRef(navigatePane)
   useEffect(() => {
-    navigatePaneRef.current = navigatePane
-  }, [navigatePane])
-  
-  useEffect(() => {
-    Keybind.sharedInstance().emitter.on("key", (key: blessed.Widgets.Events.IKeyEventArg) => {
-      navigatePaneRef.current(key)
-    })
-  }, [])
-
-  useEffect(() => {
-    screen.key(['tab', 'up', 'down', 'left', 'right', 'space', 'o', 'w'], (_, key) => Keybind.sharedInstance().keyPressed(key))
+    screen.key(['up', 'down', 'left', 'right', 'space', 'o', 'w'], (_, key) => Keybind.sharedInstance().keyPressed(key))
   }, [])
 
   // Fires whenever:
@@ -221,7 +200,6 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
     <>
       <BlockDetailsPane
         blockHeights={blockHeights}
-        isFocused={focusedPane === 0}
         selectBlock={(block) => {
           setSelectedBlock(block)
         }}
@@ -229,15 +207,15 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
       <TxHashes
         txHashes={txHashes}
         selectTxIdx={selectTxIdx}
-        isFocused={focusedPane === 1}
       />
       <TxDetails
         txData={txData}
-        isFocused={focusedPane === 2}
       />
       <Debuggah
-        isFocused={focusedPane === 3}
+        tabIndex={4.0}
       />
     </>
   );
 };
+
+export default Dashboard

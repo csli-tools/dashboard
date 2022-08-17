@@ -1,14 +1,13 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useState, useRef, useEffect } from "react"
 import blessed from "blessed"
 
 import Focus from '../../services/Focus'
 
-interface TxHashesProps {
-  txHashes: any
-  selectTxIdx: any
+interface ContractStateProps {
+  stateData: any
 }
 
-export const TxHashes: React.FC<TxHashesProps> = ({txHashes, selectTxIdx }) => {
+const ContractState: React.FC<ContractStateProps> = ({ stateData }) => {
   const [isFocused, setIsFocused] = useState(false)
 
   const styles: any = {
@@ -23,19 +22,14 @@ export const TxHashes: React.FC<TxHashesProps> = ({txHashes, selectTxIdx }) => {
         bg: isFocused ? 'yellow' : null
       }
     },
-    padding: {
-      left: 1,
-      right: 1,
-      top: 0,
-      bottom: 0
-    }
   }
+
   const ref = useRef<blessed.Widgets.BoxElement>(null)
   useEffect(() => {
     if (!ref.current) {
       return
     }
-    const focused = Focus.sharedInstance().register(ref.current, 2.0)
+    const focused = Focus.sharedInstance().register(ref.current, 4.0)
     ref.current.on("focus", () => {
       setIsFocused(true)
     })
@@ -46,28 +40,21 @@ export const TxHashes: React.FC<TxHashesProps> = ({txHashes, selectTxIdx }) => {
       Focus.sharedInstance().unregister(focused)
     }
   }, [])
+
   return (
     <box
-      keys={true}
+      label="Contract State"
       ref={ref}
-      label="Transaction hashes"
-      left="50%"
-      width="50%"
-      height="30%"
+      top="30%"
+      width="100%"
+      height="45%"
+      keys={true}
+      mouse={true}
+      scrollable={true}
       class={styles}>
-      <list
-        style={
-          {
-            selected: {
-              bg: 'blue',
-              bold: true
-            }
-          }
-        }
-        keys={true}
-        items={txHashes}
-        selected={selectTxIdx}
-      />
+      {stateData}
     </box>
-  );
-};
+  )
+}
+
+export default ContractState
