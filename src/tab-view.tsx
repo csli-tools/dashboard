@@ -58,7 +58,6 @@ export const TabView: React.FC<DashboardProps> = ({screen, client, wss }) => {
     
     const keyNum = SHIFT_NUMBER_KEYS.indexOf((key as any).ch)
     setSelectedTab(keyNum)
-    d("select", keyNum)
   }, [selectedTab]);
   
   
@@ -75,10 +74,8 @@ export const TabView: React.FC<DashboardProps> = ({screen, client, wss }) => {
     const listener = (key: blessed.Widgets.Events.IKeyEventArg) => {
       handleArrowKeysRef.current(key)
     }
-    d("add listener")
     Keybind.sharedInstance().emitter.on("key", listener)
     return () => {
-      d("remove listener")
       Keybind.sharedInstance().emitter.removeListener('key', listener)
     }
   }, [])

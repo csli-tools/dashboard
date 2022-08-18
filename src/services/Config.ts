@@ -15,7 +15,6 @@ export default class Config {
       try {
         const data = fs.readFileSync(this.root + "/csli.json")
         this.config = JSON.parse(data.toString())
-        d(JSON.stringify(this.config))
       } catch {
         d("failed to parse config file, make sure your json is valid")
       }

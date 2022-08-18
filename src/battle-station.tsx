@@ -68,7 +68,6 @@ const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
   }
 
   const checkForTransactionsInBlock = useCallback(async (block?: BlockDetails) => {
-    d(block)
     const blockInfo = block
     if (!blockInfo) {
       d('No blocks found yet')
@@ -96,9 +95,7 @@ const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
 
     const blockHasTransactions = blockDetails.txs.length !== 0
     if (blockHasTransactions) {
-      d("block has transactions")
       const firstTx: DecodedTxRaw = decodeTxRaw(blockDetails.txs[0])
-      d("block decoded")
       let deserializedFirstTx = firstTx
       const txHash = sha256(blockDetails.txs[0])
       const firstMessage = firstTx.body.messages[0]
@@ -111,11 +108,9 @@ const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
         msg.msg = JSON.parse(Buffer.from(msg.msg).toString())
         deserializedFirstTx.body.messages[0].value = msg
       }
-      d("message decoded", txHash)
       // hardcoded to just show the first
       const readableTxHash = toHex(txHash)
       const indexedTx = await client.getTx(readableTxHash)
-      d("got tx")
       if (indexedTx) {
         let decodedTransaction: DecodedTransaction = {
           ...indexedTx,
@@ -141,7 +136,6 @@ const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
             decodedTransaction.rawLog = json
           }
         }
-        d("massaged tx")
   
         setTxHashes([readableTxHash])
         // jq with colors
@@ -179,13 +173,16 @@ const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
   }, [checkForNewBlock])
   // React's silly way of saying, "do this once, yo"
   useEffect(() => {
-    setInterval(async () => {
+    const timer = setInterval(async () => {
       await intervalRef.current()
     }, 5000)
+    return () => {
+      clearInterval(timer)
+    }
   }, []);
 
   useEffect(() => {
-    screen.key(['up', 'down', 'left', 'right', 'space', 'o', 'w'], (_, key) => Keybind.sharedInstance().keyPressed(key))
+    screen.key(['left', 'right', 'space', 'o', 'w'], (_, key) => Keybind.sharedInstance().keyPressed(key))
   }, [])
 
   // Fires whenever:

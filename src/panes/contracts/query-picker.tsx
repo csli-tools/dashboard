@@ -3,12 +3,14 @@ import blessed from 'blessed'
 
 import Config from '../../services/Config'
 import Focus from '../../services/Focus'
+import { d } from '../../services/DebugLog'
 
 interface QueryPickerProps {
   selectedContractAddress?: string
+  selectQuery: (query: string) => void
 }
 
-const QueryPicker: React.FC<QueryPickerProps> = ({selectedContractAddress}) => {
+const QueryPicker: React.FC<QueryPickerProps> = ({selectedContractAddress, selectQuery}) => {
   const [isFocused, setIsFocused] = useState(false)
 
   const styles: any = {
@@ -64,6 +66,18 @@ const QueryPicker: React.FC<QueryPickerProps> = ({selectedContractAddress}) => {
       Focus.sharedInstance().unregister(focused)
     }
   }, [])
+  
+  useEffect(() => {
+    if (!ref.current) {
+      return
+    }
+    ref.current.on("select item", (item: blessed.Widgets.BlessedElement, index: number) => {
+      selectQuery(queries[index])
+    })
+    if (queries && queries.length) {
+      selectQuery(queries[0])
+    }
+  }, [queries, selectQuery])
 
   
   return (
@@ -73,6 +87,7 @@ const QueryPicker: React.FC<QueryPickerProps> = ({selectedContractAddress}) => {
       width="33%"
       height="30%"
       left="33%"
+      keys={true}
       style={
         {
           selected: {

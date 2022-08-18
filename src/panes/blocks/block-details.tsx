@@ -136,26 +136,39 @@ const BlockDetailsPane: React.FC<BlockDetailsPaneProps> = ({blockHeights, select
     }
   }, [isFocused])
   
+  useEffect(() => {
+    if (!ref.current) {
+      return
+    }
+    ref.current.on("select item", (item: blessed.Widgets.BlessedElement, index: number) => {
+      setSelectedBlock(blockHeights[index])
+      selectBlock(blockHeights[index])
+    })
+  }, [selectBlock])
+  
+  if (!blockHeights) {
+    return null
+  }
   return (
-      <list
-        label="Blocks"
-        width="50%"
-        height="30%"
-        class={styles}
-        style={
-          {
-            selected: {
-              bg: 'blue',
-              bold: true
-            }
+    <list
+      label="Blocks"
+      keys={true}
+      width="50%"
+      height="30%"
+      class={styles}
+      style={
+        {
+          selected: {
+            bg: 'blue',
+            bold: true
           }
         }
-        scrollable={true}
-        ref={ref}
-        focusable={true}
-        items={blockHeights.map(details => `${details.height} ${details.transactions.length === 0 ? '(empty)' : ''}`)}
-      />
-    
+      }
+      scrollable={true}
+      ref={ref}
+      focusable={true}
+      items={blockHeights.map(details => `${details.height} ${details.transactions.length === 0 ? '(empty)' : ''}`)}
+    />
   );
 };
 

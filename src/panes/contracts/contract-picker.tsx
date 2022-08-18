@@ -5,10 +5,10 @@ import Config from '../../services/Config'
 import Focus from '../../services/Focus'
 
 interface ContractPickerProps {
-
+  setSelectedContractAddress: (address: string | undefined) => void
 }
 
-const ContractPicker: React.FC<ContractPickerProps> = () => {
+const ContractPicker: React.FC<ContractPickerProps> = ({setSelectedContractAddress}) => {
   const [isFocused, setIsFocused] = useState(false)
   const [contracts, setContracts] = useState<string[]>(Config.sharedInstance().config?.contracts ? Object.keys(Config.sharedInstance().config.contracts) : [])
 
@@ -44,9 +44,31 @@ const ContractPicker: React.FC<ContractPickerProps> = () => {
     ref.current.on("blur", () => {
       setIsFocused(false)
     })
+    ref.current.on("select item", (item: blessed.Widgets.BlessedElement, index: number) => {
+      if (!Config.sharedInstance().config?.contracts) {
+        return
+      }
+      let contracts = Object.keys(Config.sharedInstance().config.contracts)
+      if (!contracts.length) {
+        return
+      }
+      setSelectedContractAddress(contracts[index])
+    })
     return () => {
       Focus.sharedInstance().unregister(focused)
     }
+  }, [])
+  
+  // since there's seemingly no way to have a `list` have an undefined selection state prior to user interaction
+  useEffect(() => {
+    if (!Config.sharedInstance().config?.contracts) {
+      return
+    }
+    let contracts = Object.keys(Config.sharedInstance().config.contracts)
+    if (!contracts.length) {
+      return
+    }
+    setSelectedContractAddress(contracts[0])
   }, [])
 
   
@@ -56,6 +78,7 @@ const ContractPicker: React.FC<ContractPickerProps> = () => {
       ref={ref}
       width="33%"
       height="30%"
+      keys={true}
       style={
         {
           selected: {
