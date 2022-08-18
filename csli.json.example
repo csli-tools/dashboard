@@ -1,0 +1,64 @@
+{
+  "contracts": {
+    "wasm14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9s0phg4d": {
+      "queries": [
+        {
+          "name": "Entry Lookup",
+          "key": "query_entry",
+          "mandatory": [
+            {
+              "key": "id",
+              "valueType": "number"
+            }
+          ]
+        },
+        {
+          "name": "List Lookup",
+          "key": "query_list",
+          "optional": [
+            {
+              "key": "limit",
+              "valueType": "number"
+            },
+            {
+              "key": "start_after",
+              "valueType": "number"
+            }
+          ]
+        }
+      ]
+    },
+    "wasmphg42tace42pesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9s0phg4d": {
+      "queries": [
+        {
+          "name": "NFT Details",
+          "key": "nft_details",
+          "mandatory": [
+            {
+              "key": "id",
+              "valueType": "string"
+            }
+          ]
+        },
+        {
+          "name": "List NFTs",
+          "key": "query_list",
+          "optional": [
+            {
+              "key": "account",
+              "valueType": "string"
+            },
+            {
+              "key": "limit",
+              "valueType": "number"
+            },
+            {
+              "key": "start_after",
+              "valueType": "number"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
