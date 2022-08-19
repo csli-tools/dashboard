@@ -70,7 +70,7 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
     }
   }
 
-  const getBlockTransactions = useCallback( async (txHash: string, blockInfo: BlockDetails) => {
+  const decodeBlockTransaction = useCallback(async (txHash: string, blockInfo: BlockDetails) => {
     const blockDetails = await client.getBlock(blockInfo.height)
     const transaction = blockDetails.txs.find(tx => {
       const sha = sha256(tx)
@@ -97,7 +97,6 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
       d("message decoded", txHash)
     })
     
-
     const indexedTx = await client.getTx(txHash)
 
     if (indexedTx) {
@@ -128,7 +127,7 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
       d("massaged tx")
 
       // jq with colors
-      const txDataColors = await jq.run('.', decodedTransaction, { input: 'json', color: true})
+      const txDataColors = await jq.run('.', decodedTransaction, { input: 'json', color: true })
       // whole shebang, keep the line below for a bit longer, please
       // const fullIndexedTx = util.inspect(indexedTx, false, null, true)
       const fullIndexedTx = decodedTransaction.tx
@@ -181,8 +180,6 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
     const blockDetails = await client.getBlock(blockInfo.height)
 
     const blockHasTransactions = blockDetails.txs.length !== 0
-    d(blockDetails.txs.length + " transactions in blockDetails")
-    d(blockInfo.transactions.length + " transactions in blockInfo")
     d(JSON.stringify(blockInfo))
     if (blockHasTransactions) {
       d("block has transactions")
@@ -193,13 +190,9 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
       })
       setTxHashes(readableHashes)
       setSelectedTransaction(readableHashes[0])
-      blockDetails.txs.forEach(e => {
-
-        d("got tx")
-      });
       d("block decoded")
     }
-  }, [wss, client, getBlockTransactions])
+  }, [wss, client, decodeBlockTransaction])
   
   const intervalRef = useRef(checkForNewBlock)
   useEffect(() => {
@@ -246,8 +239,8 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
     if (!selectedTransaction || !selectedBlock) {
       return
     }
-    getBlockTransactions(selectedTransaction, selectedBlock)
-  }, [getBlockTransactions, selectedTransaction, selectedBlock])
+    decodeBlockTransaction(selectedTransaction, selectedBlock)
+  }, [decodeBlockTransaction, selectedTransaction, selectedBlock])
 
   return (
     <>
