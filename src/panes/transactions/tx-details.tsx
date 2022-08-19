@@ -47,7 +47,6 @@ export const TxDetails: React.FC<TxDetailsProps> = ({ txData }) => {
       width="100%"
       height="45%"
       keys={true}
-      mouse={true}
       scrollable={true}
       class={styles}>
       {txData}

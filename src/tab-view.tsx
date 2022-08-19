@@ -85,6 +85,7 @@ export const TabView: React.FC<DashboardProps> = ({screen, client, wss }) => {
       <box
         width="100%"
         height="0%+2"
+        mouse={false}
       >
         {ALL_TABS.map((key, index) => {
           return (
