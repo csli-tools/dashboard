@@ -1,14 +1,15 @@
 import React, { useRef, useEffect, useState } from "react";
 import blessed from "blessed"
+import { d } from "../../services/DebugLog";
 
 import Focus from '../../services/Focus'
 
 interface TxHashesProps {
-  txHashes: any
-  selectTxIdx: any
+  txHashes: string[]
+  selectTransaction: (transactionHash: string) => void
 }
 
-export const TxHashes: React.FC<TxHashesProps> = ({txHashes, selectTxIdx }) => {
+export const TxHashes: React.FC<TxHashesProps> = ({txHashes, selectTransaction }) => {
   const [isFocused, setIsFocused] = useState(false)
 
   const styles: any = {
@@ -30,7 +31,8 @@ export const TxHashes: React.FC<TxHashesProps> = ({txHashes, selectTxIdx }) => {
       bottom: 0
     }
   }
-  const ref = useRef<blessed.Widgets.BoxElement>(null)
+
+  const ref = useRef<blessed.Widgets.ListElement>(null)
   useEffect(() => {
     if (!ref.current) {
       return
@@ -46,28 +48,42 @@ export const TxHashes: React.FC<TxHashesProps> = ({txHashes, selectTxIdx }) => {
       Focus.sharedInstance().unregister(focused)
     }
   }, [])
+
+
+
+  useEffect( () => {
+    if (!ref.current) {
+      return
+    }
+    ref.current.on("select item", (item: blessed.Widgets.BlessedElement, index: number) => {
+      selectTransaction(txHashes[index])
+    })
+  }, [txHashes])
+
+  useEffect(() => {
+    if (isFocused && ref.current) {
+      ref.current.focus()
+    }
+  }, [isFocused])
+
   return (
-    <box
+    <list
       keys={true}
       ref={ref}
       label="Transaction hashes"
       left="50%"
       width="50%"
       height="30%"
-      class={styles}>
-      <list
-        style={
-          {
-            selected: {
-              bg: 'blue',
-              bold: true
-            }
+      class={styles}
+      style={
+        {
+          selected: {
+            bg: 'blue',
+            bold: true
           }
         }
-        keys={true}
-        items={txHashes}
-        selected={selectTxIdx}
-      />
-    </box>
+      }
+      items={txHashes}
+    />
   );
 };
