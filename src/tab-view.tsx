@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react'
 import blessed from 'blessed'
-import { CosmWasmClient } from "@cosmjs/cosmwasm-stargate";
+import { CosmWasmClient } from "@cosmjs/cosmwasm-stargate"
 import { Server } from 'ws'
 
 import Dashboard from './battle-station'
@@ -58,7 +58,7 @@ export const TabView: React.FC<DashboardProps> = ({screen, client, wss }) => {
     
     const keyNum = SHIFT_NUMBER_KEYS.indexOf((key as any).ch)
     setSelectedTab(keyNum)
-  }, [selectedTab]);
+  }, [selectedTab])
   
   
   const handleArrowKeysRef = useRef(handleArrowKeys)

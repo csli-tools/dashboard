@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react'
 import blessed from 'blessed'
-import { CosmWasmClient } from "@cosmjs/cosmwasm-stargate";
+import { CosmWasmClient } from "@cosmjs/cosmwasm-stargate"
 import { Server } from 'ws'
 import * as jq from 'node-jq'
 
@@ -19,7 +19,7 @@ interface ContractsProps {
 }
 
 const Contracts: React.FC<ContractsProps> = ({screen, client, wss }) => {
-  const [selectedContractAddress, setSelectedContractAddress] = useState<string | undefined>(undefined )
+  const [selectedContractAddress, setSelectedContractAddress] = useState<string | undefined>(undefined)
   const [contractState, setContractState] = useState<any>(undefined)
   const [query, setQuery] = useState<any>(undefined)
   
