@@ -7,7 +7,7 @@ import blessed from 'blessed'
 import { CosmWasmClient, isMsgExecuteEncodeObject } from "@cosmjs/cosmwasm-stargate"
 import { isMsgSendEncodeObject } from '@cosmjs/stargate'
 import { MsgExecuteContract } from "cosmjs-types/cosmwasm/wasm/v1/tx"
-import { Server } from 'ws'
+import { Server, WebSocket } from 'ws'
 import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx"
 import * as jq from 'node-jq'
 
@@ -135,7 +135,7 @@ const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
         identifier: indexedTx.hash,
         data: fullIndexedTx
       }
-      wss.clients.forEach(function each(client: any) {
+      wss.clients.forEach(function each(client: WebSocket) {
         if (lastTxWebsocketMessage.identifier !== txUpdatePayload.identifier) {
           // this is a bad way to do it, my brain hurts tho
           client.send(JSON.stringify(txUpdatePayload))
@@ -162,7 +162,7 @@ const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
       setTxHashes(txHashes => {
         // boy, is this stupid
         // Let external panes know, too
-        wss.clients.forEach(function each(client: any) {
+        wss.clients.forEach(function each(client: WebSocket) {
           const txUpdatePayload: WSCSLIPayload = {
             type: 'tx',
             identifier: 'nada',

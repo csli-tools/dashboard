@@ -91,9 +91,9 @@ const QueryOptions: React.FC<QueryOptionsProps> = ({query, sendQuery}) => {
         tabIndex += tabIndexOffset
         
         elementFocusRefs.push(Focus.sharedInstance().register(textbox, tabIndex))
-        textbox.on("keypress", (ch: any, key: blessed.Widgets.Events.IKeyEventArg) => {
+        textbox.on("keypress", (ch: string, key: blessed.Widgets.Events.IKeyEventArg) => {
           if (key.name === "tab") {
-            (textbox as any)._done(null, textbox.value)
+            (textbox as any)._done(null, textbox.value) // gotta call this undocument/private method in blessed to actually commit the typed characters
             textbox.emit('keypress', '\x1b', { name: 'escape' }); //simulate esc press to release focus
             if (key.shift) {
               Focus.sharedInstance().focusPrevious()
