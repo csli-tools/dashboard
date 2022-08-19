@@ -1,13 +1,14 @@
-import React from "react";
+import React, { useRef, useEffect } from "react";
 import blessed from "blessed"
+import { d } from "../../services/DebugLog";
 
 interface TxHashesProps {
-  txHashes: any
-  selectTxIdx: any
+  txHashes: string[]
   isFocused: boolean
+  selectTransaction: (transactionHash: string) => void
 }
 
-export const TxHashes: React.FC<TxHashesProps> = ({txHashes, selectTxIdx, isFocused }) => {
+export const TxHashes: React.FC<TxHashesProps> = ({txHashes, isFocused, selectTransaction }) => {
   const styles: any = {
     border: {
       type: 'line',
@@ -28,27 +29,41 @@ export const TxHashes: React.FC<TxHashesProps> = ({txHashes, selectTxIdx, isFocu
     }
   }
 
+  const ref = useRef<blessed.Widgets.ListElement>(null)
+
+  useEffect( () => {
+    if (!ref.current) {
+      return
+    }
+    ref.current.on("select item", (item: blessed.Widgets.BlessedElement, index: number) => {
+      selectTransaction(txHashes[index])
+    })
+  }, [txHashes])
+
+  useEffect(() => {
+    if (isFocused && ref.current) {
+      ref.current.focus()
+    }
+  }, [isFocused])
+
   return (
-    <box
+    <list
       keys={true}
+      ref={ref}
       label="Transaction hashes"
       left="50%"
       width="50%"
       height="30%"
-      class={styles}>
-      <list
-        style={
-          {
-            selected: {
-              bg: 'blue',
-              bold: true
-            }
+      class={styles}
+      style={
+        {
+          selected: {
+            bg: 'blue',
+            bold: true
           }
         }
-        keys={true}
-        items={txHashes}
-        selected={selectTxIdx}
-      />
-    </box>
+      }
+      items={txHashes}
+    />
   );
 };
