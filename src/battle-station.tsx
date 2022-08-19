@@ -51,13 +51,13 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
       d('latestHeight', latestHeight)
       // Make sure we're not polling so frequently that we get the same height
       if (blockHeights.length > 0 && latestHeight === blockHeights[0].height) return
-      wss.clients.forEach(function each(client: any) {
-        const blockUpdatePayload: WSCSLIPayload = {
-          type: 'block',
-          data: latestHeight
-        }
-        client.send(JSON.stringify(blockUpdatePayload))
-      });
+      //wss.clients.forEach(function each(client: any) {
+      //  const blockUpdatePayload: WSCSLIPayload = {
+      //    type: 'block',
+      //    data: latestHeight
+      //  }
+      //  client.send(JSON.stringify(blockUpdatePayload))
+      //});
   
       const latestBlockDetails = await client.getBlock(latestHeight)
   
