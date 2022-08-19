@@ -49,7 +49,6 @@ const ContractState: React.FC<ContractStateProps> = ({ stateData }) => {
       width="100%"
       height="45%"
       keys={true}
-      mouse={true}
       scrollable={true}
       class={styles}>
       {stateData}
