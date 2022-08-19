@@ -84,3 +84,28 @@ Let's send *from* `validator` *to* `alice` with:
 **Note**: if you're on Windows, you may need to fiddle with the command above, replacing the `$(…)` code with the wasm addresses for `validator` and `alice`.
 
 You should see the Bank Message in the breakout pane, and the transaction information come through.
+
+### Configuration
+
+The app will look for the file `csli.json` in your current working directory (eventually your home directory, too). See csli.json.example in the project root for reference. Your csli.json file should conform to this typescript interface definition:
+
+```typescript
+interface CSLIConfig {
+    contracts: {
+        [address: string]: {
+            queries: {
+                name: string
+                key: string
+                mandatory?: {
+                    key: string
+                    valueType: "string" | "number"
+                }[]
+                optional?: {
+                    key: string
+                    valueType: "string" | "number"
+                }[]
+            }[]
+        }
+    }
+}
+```

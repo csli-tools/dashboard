@@ -3,15 +3,16 @@ import blessed from "blessed"
 
 import BlockDetails from "../../model/BlockDetails"
 import Keybind from '../../services/Keybind'
+import Focus from '../../services/Focus'
+import { d } from '../../services/DebugLog'
 
 interface BlockDetailsPaneProps {
   blockHeights: BlockDetails[]
-  isFocused: boolean
   selectBlock: (block: BlockDetails) => void
 }
 
-const BlockDetailsPane: React.FC<BlockDetailsPaneProps> = ({blockHeights, isFocused, selectBlock }) => {
-  
+const BlockDetailsPane: React.FC<BlockDetailsPaneProps> = ({blockHeights, selectBlock }) => {
+  const [isFocused, setIsFocused] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState<number>(0)
   const [selectedBlock, setSelectedBlock] = useState<BlockDetails | undefined>(undefined)
   const styles: any = {
@@ -33,6 +34,22 @@ const BlockDetailsPane: React.FC<BlockDetailsPaneProps> = ({blockHeights, isFocu
       bottom: 0
     }
   }
+  
+  useEffect(() => {
+    if (!ref.current) {
+      return
+    }
+    const focused = Focus.sharedInstance().register(ref.current, 1.0)
+    ref.current.on("focus", () => {
+      setIsFocused(true)
+    })
+    ref.current.on("blur", () => {
+      setIsFocused(false)
+    })
+    return () => {
+      Focus.sharedInstance().unregister(focused)
+    }
+  }, [])
   
   const blockIndex = useCallback((block: BlockDetails): number | undefined => {
     const index = blockHeights.indexOf(block)
@@ -70,7 +87,7 @@ const BlockDetailsPane: React.FC<BlockDetailsPaneProps> = ({blockHeights, isFocu
     setSelectedIndex(index)
     setSelectedBlock(blockHeights[index])
     selectBlock(blockHeights[index])
-    ref.current.select(index)    
+    ref.current.select(index)
   }, [selectedIndex, blockHeights, isFocused]);
   
   const blockRef = useRef(selectedBlock)
@@ -102,9 +119,13 @@ const BlockDetailsPane: React.FC<BlockDetailsPaneProps> = ({blockHeights, isFocu
   }, [handleArrowKeys])
   
   useEffect(() => {
-    Keybind.sharedInstance().emitter.on("key", (key: blessed.Widgets.Events.IKeyEventArg) => {
+    const listener = (key: blessed.Widgets.Events.IKeyEventArg) => {
       handleArrowKeysRef.current(key)
-    })
+    }
+    Keybind.sharedInstance().emitter.on("key", listener)
+    return () => {
+      Keybind.sharedInstance().emitter.removeListener("key", listener)
+    }
   }, [])
   
   const ref = useRef<blessed.Widgets.ListElement>(null)
@@ -115,26 +136,39 @@ const BlockDetailsPane: React.FC<BlockDetailsPaneProps> = ({blockHeights, isFocu
     }
   }, [isFocused])
   
+  useEffect(() => {
+    if (!ref.current) {
+      return
+    }
+    ref.current.on("select item", (item: blessed.Widgets.BlessedElement, index: number) => {
+      setSelectedBlock(blockHeights[index])
+      selectBlock(blockHeights[index])
+    })
+  }, [selectBlock])
+  
+  if (!blockHeights) {
+    return null
+  }
   return (
-      <list
-        label="Blocks"
-        width="50%"
-        height="30%"
-        class={styles}
-        style={
-          {
-            selected: {
-              bg: 'blue',
-              bold: true
-            }
+    <list
+      label="Blocks"
+      keys={true}
+      width="50%"
+      height="30%"
+      class={styles}
+      style={
+        {
+          selected: {
+            bg: 'blue',
+            bold: true
           }
         }
-        scrollable={true}
-        ref={ref}
-        focusable={true}
-        items={blockHeights.map(details => `${details.height} ${details.transactions.length === 0 ? '(empty)' : ''}`)}
-      />
-    
+      }
+      scrollable={true}
+      ref={ref}
+      focusable={true}
+      items={blockHeights.map(details => `${details.height} ${details.transactions.length === 0 ? '(empty)' : ''}`)}
+    />
   );
 };
 

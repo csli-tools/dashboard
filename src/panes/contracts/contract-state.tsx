@@ -1,12 +1,13 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react"
 import blessed from "blessed"
 
 import Focus from '../../services/Focus'
 
-interface TxDetailsProps {
-  txData: any
+interface ContractStateProps {
+  stateData: any
 }
-export const TxDetails: React.FC<TxDetailsProps> = ({ txData }) => {
+
+const ContractState: React.FC<ContractStateProps> = ({ stateData }) => {
   const [isFocused, setIsFocused] = useState(false)
 
   const styles: any = {
@@ -20,14 +21,15 @@ export const TxDetails: React.FC<TxDetailsProps> = ({ txData }) => {
         fg: '#eb5367',
         bg: isFocused ? 'yellow' : null
       }
-    }
+    },
   }
+
   const ref = useRef<blessed.Widgets.BoxElement>(null)
   useEffect(() => {
     if (!ref.current) {
       return
     }
-    const focused = Focus.sharedInstance().register(ref.current, 3.0)
+    const focused = Focus.sharedInstance().register(ref.current, 4.0)
     ref.current.on("focus", () => {
       setIsFocused(true)
     })
@@ -41,7 +43,7 @@ export const TxDetails: React.FC<TxDetailsProps> = ({ txData }) => {
 
   return (
     <box
-      label="Transaction details"
+      label="Contract State"
       ref={ref}
       top="30%"
       width="100%"
@@ -50,7 +52,9 @@ export const TxDetails: React.FC<TxDetailsProps> = ({ txData }) => {
       mouse={true}
       scrollable={true}
       class={styles}>
-      {txData}
+      {stateData}
     </box>
-  );
-};
+  )
+}
+
+export default ContractState

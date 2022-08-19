@@ -42,6 +42,7 @@
     "@cosmjs/stargate": "^0.28.11",
     "blessed": "^0.1.81",
     "cosmjs-types": "^0.5.0",
+    "cuid": "^2.1.8",
     "dotenv": "^16.0.1",
     "inquirer": "^8.2.4",
     "node-fetch": "^3.2.8",

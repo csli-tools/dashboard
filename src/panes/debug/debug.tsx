@@ -1,13 +1,16 @@
-import React, { useEffect, useRef } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import blessed from "blessed"
 
 import DebugLog from "../../services/DebugLog"
+import Focus from "../../services/Focus"
 
 interface DebuggahProps {
-  isFocused: boolean
+  tabIndex: number
 }
 
-export const Debuggah: React.FC<DebuggahProps> = ({ isFocused }) => {
+const Debuggah: React.FC<DebuggahProps> = ({ tabIndex }) => {
+  const [isFocused, setIsFocused] = useState(false)
+
   const styles: any = {
     border: {
       type: 'line',
@@ -33,12 +36,6 @@ export const Debuggah: React.FC<DebuggahProps> = ({ isFocused }) => {
   }
 
   useEffect(() => {
-    if (isFocused && ref.current) {
-      ref.current.focus()
-    }
-  }, [isFocused])
-
-  useEffect(() => {
     const listener = (log: string, messages: string[]) => {
       if (ref.current) {
         ref.current.setContent(messages.join("\n"))
@@ -52,6 +49,23 @@ export const Debuggah: React.FC<DebuggahProps> = ({ isFocused }) => {
       DebugLog.sharedInstance().emitter.removeListener("log", listener)
     }
   }, [])
+  
+  useEffect(() => {
+    if (!ref.current) {
+      return
+    }
+    const focused = Focus.sharedInstance().register(ref.current, tabIndex)
+    ref.current.on("focus", () => {
+      setIsFocused(true)
+    })
+    ref.current.on("blur", () => {
+      setIsFocused(false)
+    })
+    return () => {
+      Focus.sharedInstance().unregister(focused)
+    }
+  }, [tabIndex])
+
   
   const ref = useRef<blessed.Widgets.Log>(null)
     
@@ -68,5 +82,7 @@ export const Debuggah: React.FC<DebuggahProps> = ({ isFocused }) => {
       class={styles}>
         
     </log>
-  );
-};
+  )
+}
+
+export default Debuggah

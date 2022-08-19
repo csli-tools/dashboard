@@ -2,19 +2,19 @@
 import React, {useState, useEffect, useCallback, useRef} from 'react'
 import { decodeTxRaw, DecodedTxRaw, decodePubkey } from '@cosmjs/proto-signing'
 import { toHex, toBase64 } from '@cosmjs/encoding'
-import { sha256 } from "@cosmjs/crypto";
+import { sha256 } from "@cosmjs/crypto"
 import blessed from 'blessed'
-import { CosmWasmClient, isMsgExecuteEncodeObject } from "@cosmjs/cosmwasm-stargate";
+import { CosmWasmClient, isMsgExecuteEncodeObject } from "@cosmjs/cosmwasm-stargate"
 import { isMsgSendEncodeObject } from '@cosmjs/stargate'
-import { MsgExecuteContract } from "cosmjs-types/cosmwasm/wasm/v1/tx";
+import { MsgExecuteContract } from "cosmjs-types/cosmwasm/wasm/v1/tx"
 import { Server } from 'ws'
-import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx";
+import { MsgSend } from "cosmjs-types/cosmos/bank/v1beta1/tx"
 import * as jq from 'node-jq'
 
 import { TxHashes } from './panes/transactions/tx-hashes'
 import { TxDetails } from './panes/transactions/tx-details'
 import BlockDetailsPane from './panes/blocks/block-details'
-import { Debuggah } from "./panes/debug/debug";
+import Debuggah from "./panes/debug/debug"
 import { d } from './services/DebugLog'
 import { getJSON } from './utils/json'
 import WSCSLIPayload from './utils/websockets'
@@ -28,27 +28,24 @@ interface DashboardProps {
   wss: Server
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
+const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
   // so tired
   let lastTxWebsocketMessage: WSCSLIPayload = {
     type: "tx",
     data: null
   }
   const totalPanes = 4 // let's not hardcode this
-  const [focusedPane, setFocusedPane] = useState(0)
   const [selectedBlock, setSelectedBlock] = useState<BlockDetails | undefined>(undefined)
   const [selectedTransaction, setSelectedTransaction] = useState<string | undefined>(undefined)
   // TODO: we're never setting this yet
   const [selectTxIdx, setSelectTxIdx] = useState(0)
-  const [txHashes, setTxHashes] = useState<any[]>([]);
-  const [blockHeights, setBlockHeights] = useState<BlockDetails[]>([]);
-  const [txData, setTxData] = useState<any>('(Use tab to change panes. Arrow keys to navigate.)');
+  const [txHashes, setTxHashes] = useState<any[]>([])
+  const [blockHeights, setBlockHeights] = useState<BlockDetails[]>([])
+  const [txData, setTxData] = useState<any>('(Use tab to change panes. Arrow keys to navigate.)')
 
   const checkForNewBlock = async () => {
-    d('check for new block')
     try {
       const latestHeight = await client.getHeight()
-      d('latestHeight', latestHeight)
       // Make sure we're not polling so frequently that we get the same height
       if (blockHeights.length > 0 && latestHeight === blockHeights[0].height) return
       //wss.clients.forEach(function each(client: any) {
@@ -57,14 +54,14 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
       //    data: latestHeight
       //  }
       //  client.send(JSON.stringify(blockUpdatePayload))
-      //});
+      //})
   
       const latestBlockDetails = await client.getBlock(latestHeight)
   
       setBlockHeights(blockHeights => {
         const updatedBlockHeights = [{height: latestHeight, transactions: [...latestBlockDetails.txs]}, ...blockHeights]
         return updatedBlockHeights
-      });
+      })
     } catch (error) {
       d("failed to check for new block", error)
     }
@@ -143,7 +140,7 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
           // this is a bad way to do it, my brain hurts tho
           client.send(JSON.stringify(txUpdatePayload))
         }
-      });
+      })
       lastTxWebsocketMessage = {
         type: 'tx',
         identifier: indexedTx.hash,
@@ -172,7 +169,7 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
             data: null
           }
           client.send(JSON.stringify(txUpdatePayload))
-        });
+        })
         return []
       })
       return
@@ -182,7 +179,6 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
     const blockHasTransactions = blockDetails.txs.length !== 0
     d(JSON.stringify(blockInfo))
     if (blockHasTransactions) {
-      d("block has transactions")
       const readableHashes = blockDetails.txs.map(tx => {
         const txHash = sha256(tx)
         const readableTxHash = toHex(txHash)
@@ -190,7 +186,6 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
       })
       setTxHashes(readableHashes)
       setSelectedTransaction(readableHashes[0])
-      d("block decoded")
     }
   }, [wss, client, decodeBlockTransaction])
   
@@ -200,31 +195,16 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
   }, [checkForNewBlock])
   // React's silly way of saying, "do this once, yo"
   useEffect(() => {
-    setInterval(async () => {
+    const timer = setInterval(async () => {
       await intervalRef.current()
     }, 5000)
-  }, []);
-
-  const navigatePane = useCallback((key: blessed.Widgets.Events.IKeyEventArg) => {
-    if (key.name !== "tab") {
-      return
+    return () => {
+      clearInterval(timer)
     }
-    setFocusedPane(focusedPane => (focusedPane + 1) % (totalPanes))
-  }, [focusedPane]);
-  
-  const navigatePaneRef = useRef(navigatePane)
-  useEffect(() => {
-    navigatePaneRef.current = navigatePane
-  }, [navigatePane])
-  
-  useEffect(() => {
-    Keybind.sharedInstance().emitter.on("key", (key: blessed.Widgets.Events.IKeyEventArg) => {
-      navigatePaneRef.current(key)
-    })
   }, [])
 
   useEffect(() => {
-    screen.key(['tab', 'up', 'down', 'left', 'right', 'space', 'o', 'w'], (_, key) => Keybind.sharedInstance().keyPressed(key))
+    screen.key(['left', 'right', 'space', 'o', 'w'], (_, key) => Keybind.sharedInstance().keyPressed(key))
   }, [])
 
   // Fires whenever:
@@ -246,7 +226,6 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
     <>
       <BlockDetailsPane
         blockHeights={blockHeights}
-        isFocused={focusedPane === 0}
         selectBlock={(block) => {
           setSelectedBlock(block)
         }}
@@ -256,15 +235,15 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
         selectTransaction={(transaction) => {
           setSelectedTransaction(transaction)
         }}
-        isFocused={focusedPane === 1}
       />
       <TxDetails
         txData={txData}
-        isFocused={focusedPane === 2}
       />
       <Debuggah
-        isFocused={focusedPane === 3}
+        tabIndex={4.0}
       />
     </>
-  );
-};
+  )
+}
+
+export default Dashboard
