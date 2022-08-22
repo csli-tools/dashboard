@@ -23,15 +23,6 @@ const Contracts: React.FC<ContractsProps> = ({screen, client, wss }) => {
   const [contractState, setContractState] = useState<any>(undefined)
   const [query, setQuery] = useState<any>(undefined)
   
-  useEffect(() => {
-
-    //client.queryContractSmart("wasm14hj2tavq8fpesdwxxcu44rty3hh90vhujrvcmstl4zr3txmfvw9s0phg4d", {"query_list": {}}).then(async contract => {
-    //  const state = await jq.run('.', contract, { input: 'json', color: true})
-    //  setContractState(state)
-    //})
-    
-  }, [])
-  
   const selectQuery = useCallback((queryName: string) => {
     if (!selectedContractAddress) {
       return
@@ -52,13 +43,17 @@ const Contracts: React.FC<ContractsProps> = ({screen, client, wss }) => {
       return
     }
     d("querying with options", JSON.stringify(query))
-    client.queryContractSmart(selectedContractAddress, query).then(async contract => {
-      const state = await jq.run('.', contract, { input: 'json', color: true})
-      setContractState(state)
-    }).catch((error) => {
+    try {
+      client.queryContractSmart(selectedContractAddress, query).then(async contract => {
+        const state = await jq.run('.', contract, { input: 'json', color: true})
+        setContractState(state)
+      }).catch((error) => {
+        d(error)
+        setContractState(undefined)
+      })
+    } catch (error) {
       d(error)
-      setContractState(undefined)
-    })
+    }
   }, [selectedContractAddress])
   
   return (
