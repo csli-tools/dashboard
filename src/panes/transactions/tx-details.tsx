@@ -24,7 +24,7 @@ export const TxDetails: React.FC<TxDetailsProps> = ({ txData, isFocused }) => {
       label="Transaction details"
       top="30%"
       width="100%"
-      height="45%"
+      height="100%"
       keys={true}
       mouse={true}
       scrollable={true}

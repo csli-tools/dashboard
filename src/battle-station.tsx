@@ -59,7 +59,7 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
   useEffect(() => {
     debugEntriesRef.current = debugEntries
   }, [debugEntries])
-  
+
   // Debugger window
   const d = useCallback((message: any, stuff: any | null = null, pleaseWriteToLogs = false) => {
     if (!debugEntriesRef.current) {
@@ -95,9 +95,9 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
         }
         client.send(JSON.stringify(blockUpdatePayload))
       });
-  
+
       const latestBlockDetails = await client.getBlock(latestHeight)
-  
+
       setBlockHeights(blockHeights => {
         const updatedBlockHeights = [{height: latestHeight, transactions: [...latestBlockDetails.txs]}, ...blockHeights]
         return updatedBlockHeights
@@ -114,7 +114,7 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
       d('No blocks found yet')
       return
     }
-    
+
     if (blockInfo.transactions.length === 0) {
       setTxData('')
       setTxHashes(txHashes => {
@@ -181,14 +181,14 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
           }
         }
         d("massaged tx")
-  
+
         setTxHashes([readableTxHash])
         // jq with colors
         const txDataColors = await jq.run('.', decodedTransaction, { input: 'json', color: true})
         // whole shebang, keep the line below for a bit longer, please
         // const fullIndexedTx = util.inspect(indexedTx, false, null, true)
         const fullIndexedTx = decodedTransaction.tx
-  
+
         // Fire off a websocket message
         const txUpdatePayload: WSCSLIPayload = {
           type: 'tx',
@@ -206,12 +206,12 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
           identifier: indexedTx.hash,
           data: null
         }
-  
+
         setTxData(txDataColors)
       }
     }
   }, [wss])
-  
+
   const intervalRef = useRef(checkForNewBlock)
   useEffect(() => {
     intervalRef.current = checkForNewBlock
@@ -220,7 +220,7 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
   useEffect(() => {
     setInterval(async () => {
       await intervalRef.current()
-    }, 5000)
+    }, 2000)
   }, []);
 
   const navigatePane = useCallback((key: blessed.Widgets.Events.IKeyEventArg) => {
@@ -229,12 +229,12 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
     }
     setFocusedPane(focusedPane => (focusedPane + 1) % (totalPanes))
   }, [focusedPane]);
-  
+
   const navigatePaneRef = useRef(navigatePane)
   useEffect(() => {
     navigatePaneRef.current = navigatePane
   }, [navigatePane])
-  
+
   useEffect(() => {
     Keybind.sharedInstance().emitter.on("key", (key: blessed.Widgets.Events.IKeyEventArg) => {
       navigatePaneRef.current(key)
@@ -271,10 +271,10 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, client, wss }) => {
         txData={txData}
         isFocused={focusedPane === 2}
       />
-      <Debuggah
-        debugEntries={debugEntries}
-        isFocused={focusedPane === 3}
-      />
+      {/*<Debuggah*/}
+      {/*  debugEntries={debugEntries}*/}
+      {/*  isFocused={focusedPane === 3}*/}
+      {/*/>*/}
     </>
   );
 };
