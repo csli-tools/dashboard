@@ -14,24 +14,17 @@ const BlockDetailsPane: React.FC<BlockDetailsPaneProps> = ({blockHeights, isFocu
   
   const [selectedIndex, setSelectedIndex] = useState<number>(0)
   const [selectedBlock, setSelectedBlock] = useState<BlockDetails | undefined>(undefined)
-  const styles: any = {
-    border: {
-      type: 'line',
-      bottom: null,
-      right: null,
-    },
-    style: {
-      border: {
-        fg: '#eb5367',
-        bg: isFocused ? 'yellow' : null
-      }
-    },
-    padding: {
-      left: 1,
-      right: 1,
-      top: 0,
-      bottom: 0
-    }
+  const borderConfig: any = {
+    type: 'line',
+    bottom: false,
+    right: null,
+  }
+
+  const padding = {
+    left: 1,
+    right: 1,
+    top: 0,
+    bottom: 0
   }
   
   const blockIndex = useCallback((block: BlockDetails): number | undefined => {
@@ -65,7 +58,7 @@ const BlockDetailsPane: React.FC<BlockDetailsPaneProps> = ({blockHeights, isFocu
     if (key.name === "up") {
       index = Math.max(0, selectedBlockIndex - 1)
     } else {
-      index = Math.min(blockHeights.length, selectedBlockIndex + 1)
+      index = Math.min(blockHeights.length - 1, selectedBlockIndex + 1)
     }
     setSelectedIndex(index)
     setSelectedBlock(blockHeights[index])
@@ -78,23 +71,61 @@ const BlockDetailsPane: React.FC<BlockDetailsPaneProps> = ({blockHeights, isFocu
     blockRef.current = selectedBlock
   }, [selectedBlock])
   
+  // Track the previous blockHeights length to detect new blocks
+  const prevBlockHeightsLength = useRef(blockHeights.length)
+
   useEffect(() => {
-    if (!ref.current) {
+    if (!ref.current || blockHeights.length === 0) {
       return
     }
+
+    // Only auto-select on first load (when we don't have a selected block yet)
     if (!blockRef.current) {
       setSelectedIndex(0)
       setSelectedBlock(blockHeights[0])
       selectBlock(blockHeights[0])
+      prevBlockHeightsLength.current = blockHeights.length
       return
     }
-    const index = blockIndex(blockRef.current) // use a reference here so we don't end up in an infinite loop with selectedBlock and selectedIndex updating eachother indefinitely
-    if (index === undefined) {
+
+    // Only run this logic when NEW blocks arrive (array grows)
+    // Don't run when selectedIndex changes due to arrow keys
+    const newBlocksArrived = blockHeights.length > prevBlockHeightsLength.current
+    if (!newBlocksArrived) {
+      prevBlockHeightsLength.current = blockHeights.length
       return
     }
-    setSelectedIndex(index)
-    ref.current.select(index)
-  }, [blockHeights, blockIndex])
+    prevBlockHeightsLength.current = blockHeights.length
+
+    // Check if user is viewing the latest block (index 0)
+    const currentIndex = blockIndex(blockRef.current)
+    const isViewingLatest = currentIndex === 0
+
+    if (isViewingLatest) {
+      // "Live mode" - always show the newest block
+      // When new blocks arrive, keep selection at index 0
+      setSelectedBlock(blockHeights[0])
+      selectBlock(blockHeights[0])
+      ref.current.select(0)
+    } else {
+      // "History browsing mode" - maintain selection on the same block object
+      // When new blocks arrive, find where our selected block moved to
+      const index = blockIndex(blockRef.current)
+      if (index !== undefined) {
+        // Block is still in the list, update the index position
+        setSelectedIndex(index)
+        ref.current.select(index)
+      } else {
+        // Block was dropped from the list (fell off the 100-block limit)
+        // Move selection to the oldest available block
+        const oldestIndex = blockHeights.length - 1
+        setSelectedIndex(oldestIndex)
+        setSelectedBlock(blockHeights[oldestIndex])
+        selectBlock(blockHeights[oldestIndex])
+        ref.current.select(oldestIndex)
+      }
+    }
+  }, [blockHeights, blockIndex, selectBlock])
   
   const handleArrowKeysRef = useRef(handleArrowKeys)
   useEffect(() => {
@@ -102,9 +133,16 @@ const BlockDetailsPane: React.FC<BlockDetailsPaneProps> = ({blockHeights, isFocu
   }, [handleArrowKeys])
   
   useEffect(() => {
-    Keybind.sharedInstance().emitter.on("key", (key: blessed.Widgets.Events.IKeyEventArg) => {
+    const handler = (key: blessed.Widgets.Events.IKeyEventArg) => {
       handleArrowKeysRef.current(key)
-    })
+    }
+
+    Keybind.sharedInstance().emitter.on("key", handler)
+
+    // Cleanup: remove event listener on unmount
+    return () => {
+      Keybind.sharedInstance().emitter.off("key", handler)
+    }
   }, [])
   
   const ref = useRef<blessed.Widgets.ListElement>(null)
@@ -114,28 +152,47 @@ const BlockDetailsPane: React.FC<BlockDetailsPaneProps> = ({blockHeights, isFocu
       ref.current.focus()
     }
   }, [isFocused])
-  
+
+  // Update border style imperatively when focus changes
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    try {
+      el.style.border.bg = isFocused ? 'yellow' : undefined;
+      // Restore selection after render to prevent losing the selected index
+      el.select(selectedIndex);
+      (el.screen as any).render();
+    } catch {}
+  }, [isFocused, selectedIndex]);
+
   return (
       <list
         label="Blocks"
         width="50%"
         height="30%"
-        class={styles}
-        style={
-          {
-            selected: {
-              bg: 'blue',
-              bold: true
-            }
+        border={borderConfig}
+        padding={padding}
+        style={{
+          border: {
+            fg: '#eb5367',
+            bg: isFocused ? 'yellow' : undefined
+          },
+          selected: {
+            bg: 'blue',
+            bold: true
           }
-        }
+        }}
         scrollable={true}
         ref={ref}
         focusable={true}
-        items={blockHeights.map(details => `${details.height} ${details.transactions.length === 0 ? '(empty)' : ''}`)}
+        items={blockHeights.map(details => {
+          const date = details.timestamp ? new Date(details.timestamp).toLocaleTimeString() : ''
+          const txCount = details.transactions.length
+          return `${details.height} | ${date} | ${txCount} txs`
+        })}
       />
-    
+
   );
 };
 
-export default BlockDetailsPane
+export default React.memo(BlockDetailsPane)
