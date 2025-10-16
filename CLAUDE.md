@@ -117,13 +117,26 @@ NEAR RPC is simpler than Cosmos:
 - Straightforward RPC calls via `sendRpc(method, params)`
 - Utility functions in `NEARTypes.ts` handle all common formatting needs
 
+### Clipboard Architecture
+
+Transaction data uses separate formatters for display vs export:
+- `prepareTxForDisplay()` - Truncates long fields (public_key, signature) for terminal display using `shortMiddle()`
+- `prepareTxForCopy()` - Full data without truncation for clipboard
+- `txData` state - ANSI-colored JSON for display (via `ansiJson()`)
+- `rawTxData` state - Plain JSON for clipboard (via `JSON.stringify()`)
+
+Pressing 'c' copies `rawTxData` to system clipboard (pbcopy/clip/xclip). Display version shows truncated fields to save screen space, clipboard version contains complete data.
+
+### Status Bar
+
+Located at `src/ui/StatusBar.tsx`. Displays network, block height, follow mode status, FPS, and UTC time. Time uses ISO 8601 format (HH:MM:SS UTC) via `new Date().toISOString()`.
+
 ## Current Limitations
 
-1. UI components not yet updated for NEAR (still using Cosmos data structures)
-2. WebSocket port (63736) is hardcoded
-3. Polling interval (1 second) is not configurable
-4. No error boundaries for React components
-5. No retry logic for failed RPC requests
+1. WebSocket port (63736) is hardcoded
+2. Polling interval (1 second) is not configurable
+3. No error boundaries for React components
+4. No retry logic for failed RPC requests
 
 ## Important Files
 

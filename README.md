@@ -1,47 +1,94 @@
-# csli Dashboard
+# CSLI Dashboard
 
-We've accidentally created a terminal block explorer, but for now this is aimed at developers writing CosmWasm smart contracts.
-
-## Problem
-
-1. As we develop our contracts, we have no idea what the hell is going on inside the blockchain.
-2. We need more people to chip in and help use and test all the CosmJS libraries.
-
-## Solution
-
-We'll use CosmJS libraries to set up a terminal dashboard capable of being a full dark-room, hacker* battle station.
-**Trance music not included.*
+Terminal-based block explorer and development tool for NEAR Protocol. Provides real-time monitoring of blockchain activity through a React-based terminal UI using the blessed library.
 
 ## Setup
 
-### Get `wasmd`
+### Environment Configuration
 
-Grab `wasmd` from the instructions here:
-https://github.com/CosmWasm/wasmd
+Copy the template and configure your environment:
 
-(You can use other daemons like `junod` but we'll keep it simple for this guide.)
+```bash
+cp .env.template .env
+```
 
-### Make local chain, nameservice contract
+Edit `.env`:
 
-Read this:
-https://tutorials.cosmos.network/academy/3-my-own-chain/cosmwasm.html
+```
+NEAR_NETWORK=mainnet|testnet|localnet
+FASTNEAR_AUTH_TOKEN=your_token_here  # Required for mainnet
+```
 
-and set up your local chain. If you get any errors, please [contribute here](https://github.com/cosmos/sdk-tutorials).
+For mainnet access, obtain a FastNEAR authentication token and set `FASTNEAR_AUTH_TOKEN`.
 
-### Start the dashboard
+### Installation
 
-Start the dashboard with:
+```bash
+npm install
+```
 
-    npm run start
+## Usage
 
-In another terminal window, you can also start a "breakout pane" that shows a specific aspect of the transaction, like the Messages.
+### Main Dashboard
 
-To list the available breakout panes, run:
+Start the primary dashboard:
 
-    npm run pane
+```bash
+npm run start
+```
 
-To start the breakout pane for Messages run:
+The dashboard polls for new blocks every 1 second and displays:
+- Block list with heights, hashes, and timestamps
+- Transaction hashes for selected block
+- Decoded transaction details with actions
 
-    npm run pane msg
+### Keyboard Navigation
 
-This will connect to the dashboard using [websockets](https://developer.mozilla.org/en-US/docs/Web/API/WebSocket).
+- `Tab` - Cycle between panes
+- `↑/↓` - Navigate within pane
+- `←/→` - Page up/down (6 lines)
+- `PageUp/PageDown` - Page navigation
+- `Home/End` - Jump to top/bottom
+- `c` - Copy transaction details to clipboard
+- `Ctrl+L` - Toggle follow latest block
+- `?` or `h` - Show help overlay
+- `Ctrl+K` - Open command palette
+- `Esc` - Close overlays
+
+### Breakout Panes
+
+Launch additional terminal windows for specific data views:
+
+```bash
+npm run pane        # List available panes
+npm run pane msg    # Messages pane
+```
+
+Breakout panes connect to the main dashboard via WebSocket (port 63736) for synchronized data display.
+
+### Testing
+
+```bash
+npm run test:near    # Test RPC connectivity
+npm run test:models  # Validate data model parsing
+```
+
+## Architecture
+
+See `CLAUDE.md` for detailed technical documentation including:
+- Core component architecture
+- Data flow and polling mechanism
+- NEAR-specific patterns (sharding, actions, accounts)
+- Clipboard architecture (display vs copy formatters)
+- WebSocket communication protocol
+- State management patterns
+
+## Features
+
+- Real-time block monitoring with 1-second polling
+- Transaction decoding with action parsing
+- Human-readable account names (alice.near)
+- Clipboard copy with full data (press 'c')
+- UTC time display in status bar
+- WebSocket broadcasting to breakout panes
+- Follow mode for automatic latest block selection
