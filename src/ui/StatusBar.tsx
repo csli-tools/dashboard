@@ -18,8 +18,8 @@ export const StatusBar: React.FC<Props> = ({ network, height, follow, fps, filte
     const parts = [];
     if (typeof fps === 'number') parts.push(`${fps}FPS`);
     if (filterActive) parts.push('FILTER');
-    const time = new Date().toLocaleTimeString();
-    parts.push(time);
+    const time = new Date().toISOString().split('T')[1].split('.')[0]; // HH:MM:SS format
+    parts.push(`${time} UTC`);
     return ` ${parts.join(' • ')} `;
   }, [fps, filterActive]);
 
