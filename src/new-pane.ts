@@ -5,9 +5,11 @@ require('@babel/register')({
 // "aloha" is the zeroth index, "honua" is the first index
 const supportedPanes: {[key: string]: string} = {
    'msg': 'Shows the Messages for the selected transaction',
+   'agents': 'Shows agent information',
+   'tasks': 'Shows tasks',
+   'alice-bob': 'Shows details on Alice and Bob',
 };
 const supportedPanesList = Object.keys(supportedPanes).map(paneName => `⚛️  ${paneName} — ${supportedPanes[paneName]}`).join('\n')
-// console.log('aloha supportedPanesList', supportedPanesList)
 const args = process.argv.slice(2);
 if (args.length === 0) {
   console.log('Listing valid panes…\nPlease add one of these after your command:\n', supportedPanesList)
@@ -24,5 +26,5 @@ if (Object.keys(supportedPanes).indexOf(paneName) === -1) {
   process.exit(0);
 }
 
-// The files in that directory will be the [command name].js, basically
+// The files in that directory will be the [command name].ts, basically
 require('./panes/breakout-panes/' + paneName);

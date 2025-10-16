@@ -6,9 +6,9 @@
   "scripts": {
     "start": "ts-node-dev src",
     "pane": "ts-node-dev src/new-pane.ts",
-    "lint": "eslint src",
-    "lint:pane": "eslint src/new-pane.ts",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:near": "ts-node src/test-near-connection.ts",
+    "test:models": "ts-node src/test-data-models.ts"
   },
   "keywords": [
     "cosmwasm",
@@ -42,13 +42,14 @@
     "@cosmjs/stargate": "^0.28.11",
     "blessed": "^0.1.81",
     "cosmjs-types": "^0.5.0",
-    "cuid": "^2.1.8",
     "dotenv": "^16.0.1",
     "inquirer": "^8.2.4",
+    "neo-blessed": "^0.2.0",
     "node-fetch": "^3.2.8",
     "node-jq": "^2.3.3",
     "react": "^17.0.2",
     "react-blessed": "^0.7.2",
+    "shelljs": "^0.8.5",
     "ws": "^8.8.1"
   },
   "devDependencies": {
@@ -57,9 +58,10 @@
     "@babel/preset-flow": "^7.18.6",
     "@types/blessed": "^0.1.19",
     "@types/react-blessed": "^0.7.1",
+    "@types/shelljs": "^0.8.11",
     "@types/ws": "^8.5.3",
-    "eslint": "^8.21.0",
-    "eslint-config-react-app": "^7.0.1",
-    "ts-node-dev": "^2.0.0"
-  }
+    "ts-node-dev": "^2.0.0",
+    "typescript": "^5.9.3"
+  },
+  "packageManager": "yarn@4.10.3"
 }

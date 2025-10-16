@@ -1,14 +1,11 @@
-import * as dotenv from 'dotenv'
-import { CosmWasmClient } from '@cosmjs/cosmwasm-stargate'
 import chalk from "chalk";
 import { WebSocketServer } from 'ws';
-
-// Load the environment variables in .env
-dotenv.config()
-const rpcEndpoint = `${process.env.RPC_PROTOCOL ?? 'http'}://${process.env.RPC_URL ?? '127.0.0.1'}:${process.env.RPC_PORT ?? 26657}`
+import { setNEARConfig, getNetworkStatus, BlockPoller, getNEARConfig } from '../services/near-rpc';
+import { cfg } from '../shared/config';
 
 const helpFileTicketPlz = (u: any) => {
-  console.error(chalk.red(`Issue connecting to RPC at ${chalk.yellow(rpcEndpoint)}\nWanna file a ticket, ol' buddy ol' pal?`))
+  const config = getNEARConfig();
+  console.error(chalk.red(`Issue connecting to NEAR RPC at ${chalk.yellow(config.nodeUrl)}\nWanna file a ticket, ol' buddy ol' pal?`))
   console.log('https://github.com/csli-tools/dashboard/issues/new')
 }
 
@@ -16,7 +13,7 @@ export const attemptConnect = async () => {
   let wss
   try {
     wss = new WebSocketServer({
-      port: 63736 // dtool s2h csli
+      port: cfg().WS_PORT
     });
 
     wss.on('connection', function connection(ws) {
@@ -31,41 +28,44 @@ export const attemptConnect = async () => {
     console.error('Issue creating the websocket server', e)
   }
 
-  let client: CosmWasmClient | undefined = undefined
+  let nearConnection: { status: any; poller: BlockPoller } | undefined = undefined
   try {
     console.log('aloha2')
-    console.log(rpcEndpoint)
-    client = await CosmWasmClient.connect(rpcEndpoint)
+
+    // Configure NEAR network
+    const network = cfg().NEAR_NETWORK;
+    setNEARConfig(network);
+    const config = getNEARConfig();
+    console.log(`Connecting to NEAR ${network} at ${config.nodeUrl}`)
+
+    // Test connection by getting network status
+    const statusResponse = await getNetworkStatus();
     console.log('aloha3')
+    console.log(`Connected to NEAR network: ${statusResponse.result.chain_id}`)
+
+    // Create block poller for real-time updates
+    const poller = new BlockPoller();
+
+    nearConnection = { status: statusResponse.result, poller };
   } catch (e: any) {
-    const u = JSON.parse(JSON.stringify(e)); // a useful error object
-    if (u && u.code) {
-      switch (e.code) {
-        case 'ECONNREFUSED':
-          console.log(chalk.red(`Couldn't connect. Is your ${chalk.yellow('wasmd')} (or preferred daemon) running?\nWe're trying to connect to ${chalk.yellow(rpcEndpoint)}\nPlease update environment variables in the ${chalk.yellow('.env')} file. (You may need to copy ${chalk.yellow('.env.template')} » ${chalk.yellow('.env')} if it doesn't exist.)`))
-          break;
-        case 'ERR_SOCKET_BAD_PORT':
-          console.log(chalk.red(`Couldn't connect and it seems your port is the problem. The typical RPC port is ${chalk.yellow('26657')}\nWe're trying to connect to ${chalk.yellow(rpcEndpoint)}\nPlease update environment variables in the ${chalk.yellow('.env')} file. (You may need to copy ${chalk.yellow('.env.template')} » ${chalk.yellow('.env')} if it doesn't exist.)`))
-          break;
-        case 'EPROTO':
-          console.log(chalk.red(`Couldn't connect and it seems your protocol is the problem. Check the ${chalk.yellow('RPC_PROTOCOL')} environment variable.\nWe're trying to connect to ${chalk.yellow(rpcEndpoint)}\nPlease update it in the ${chalk.yellow('.env')} file. (You may need to copy ${chalk.yellow('.env.template')} » ${chalk.yellow('.env')} if it doesn't exist.)`))
-          if (process.env.RPC_PROTOCOL === 'https') {
-            console.log(chalk.yellow(`Consider changing to ${chalk.blue('http')}`))
-          }
-          break;
-        default:
-          helpFileTicketPlz(u)
-          break;
-      }
+    const errorMessage = e.message || JSON.stringify(e);
+
+    if (errorMessage.includes('ECONNREFUSED')) {
+      console.log(chalk.red(`Couldn't connect to NEAR RPC. Is the network accessible?\nWe're trying to connect to ${chalk.yellow(getNEARConfig().nodeUrl)}\nPlease update the ${chalk.yellow('NEAR_NETWORK')} environment variable in the ${chalk.yellow('.env')} file to 'mainnet', 'testnet', or 'localnet'`))
+    } else if (errorMessage.includes('ENOTFOUND')) {
+      console.log(chalk.red(`Couldn't resolve NEAR RPC host. Please check your internet connection.\nWe're trying to connect to ${chalk.yellow(getNEARConfig().nodeUrl)}`))
+    } else if (errorMessage.includes('ETIMEDOUT')) {
+      console.log(chalk.red(`Connection to NEAR RPC timed out. The network may be slow or unavailable.\nWe're trying to connect to ${chalk.yellow(getNEARConfig().nodeUrl)}`))
     } else {
-      helpFileTicketPlz(u)
+      console.error(chalk.red('Error connecting to NEAR:'), errorMessage)
+      helpFileTicketPlz(e)
     }
   }
   console.log('aloha0')
-  return { 'wss': wss ?? null, 'client': client ?? null}
-  // if (wss && client) {
-  // } else {
-  //   console.log('aloha uh oh')
-  //   return { 'wss': null, 'client': null }
-  // }
+  return {
+    wss: wss ?? null,
+    nearConnection: nearConnection ?? null,
+    // Keep client for backward compatibility, will be removed later
+    client: nearConnection ?? null
+  }
 }
