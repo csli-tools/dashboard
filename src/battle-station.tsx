@@ -210,16 +210,39 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, wss }) => {
     return pruned;
   }
 
+  // Full transaction data for clipboard (no truncation)
+  const prepareTxForCopy = (tx: any) => {
+    const decoded = decodeTransactionArgs(tx);
+    const showBase64 = cfg().SHOW_ARGS_BASE64;
+
+    // Deep clone and clean up actions - conditionally remove args_base64 (recursively)
+    const prettyActions = decoded.actions.map((action: any) => cleanAction(action, showBase64));
+
+    // Full transaction data with no truncation
+    const full = {
+      hash: decoded.hash,
+      signer: decoded.signer_id,
+      receiver: decoded.receiver_id,
+      nonce: decoded.nonce,
+      public_key: decoded.public_key,      // Full, not truncated
+      signature: decoded.signature,        // Full, not truncated
+      actions: prettyActions,
+    };
+
+    return full;
+  }
+
   // Render current tx in pretty mode
   const displayTransaction = useCallback(async (tx: any) => {
     const seq = ++txRenderSeqRef.current
     d("displaying transaction", tx.hash)
 
-    // PRETTY: compact, human-readable with ANSI colors
-    const txSummary = prepareTxForDisplay(tx);
+    // Prepare two versions: truncated for display, full for clipboard
+    const txSummaryDisplay = prepareTxForDisplay(tx);
+    const txSummaryCopy = prepareTxForCopy(tx);
     setImmediate(() => {
-      const pretty = ansiJson(txSummary)
-      const raw = JSON.stringify(txSummary, null, 2)
+      const pretty = ansiJson(txSummaryDisplay)  // Display uses truncated version
+      const raw = JSON.stringify(txSummaryCopy, null, 2)  // Clipboard uses full version
       if (seq === txRenderSeqRef.current) {
         setTxData(pretty)
         setRawTxData(raw)
