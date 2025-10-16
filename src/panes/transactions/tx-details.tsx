@@ -5,9 +5,10 @@ import { softWrapLongTokensAnsiAware, ensureTrailingNewline } from '../../utils/
 type Props = {
   txData: string;
   isFocused: boolean;
+  mode: 'pretty' | 'raw';
 };
 
-export const TxDetails: React.FC<Props> = React.memo(({ txData, isFocused }) => {
+export const TxDetails: React.FC<Props> = React.memo(({ txData, isFocused, mode }) => {
   const boxRef = useRef<any>(null);
 
   // Border config with only top border visible
@@ -79,11 +80,13 @@ export const TxDetails: React.FC<Props> = React.memo(({ txData, isFocused }) => 
     return () => { try { el.removeKey(['up','down','left','right','pageup','pagedown','home','end'], handler); } catch {} };
   }, [isFocused]);
 
+  const label = ` Transaction details [${mode.toUpperCase()}] - Press 'c' to copy, 'v' to toggle `;
+
   // @ts-ignore blessed element
   return (
     <box
       ref={boxRef}
-      label={` Transaction details - Press 'c' to copy `}
+      label={label}
       top="30%"
       height="70%"
       width="100%"

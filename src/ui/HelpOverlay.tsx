@@ -30,21 +30,36 @@ export const HelpOverlay: React.FC<Props> = ({ open, onClose }) => {
       {/* @ts-ignore */}
       <text top={1} left={2} content={
 `Navigation
-  Tab / Shift+Tab .......... Switch panes
-  ↑/↓ / PgUp/PgDn .......... Move/Scroll in pane
-  ←/→ ...................... Scroll 6 lines in tx details
+  Tab / Shift+Tab ........... Switch panes
+  ↑/↓ / PgUp/PgDn ........... Move/Scroll in pane
+  ←/→ ....................... Page up/down (6 lines)
   Home/End .................. Jump to top/bottom
 
-Actions
-  Esc ...................... Close overlays
-  Ctrl+K ................... Command Palette
-  c ........................ Copy details
-  Ctrl+L ................... Toggle Follow Latest
-  q or Ctrl+C .............. Quit
+Viewing
+  v ......................... Toggle Pretty / Raw
+  c ......................... Copy transaction details
+  / or f .................... Focus Filter bar
+  Ctrl+F .................... History Search
+  Ctrl+K .................... Command Palette
+  ? or h .................... Help (this screen)
 
-Notes
-  • Copy is whole-details by design (no partial mouse select in TUIs).
-  • Press any key to close this help.` } />
+Marks & Navigation
+  m ......................... Set auto mark
+  M ......................... Marks overlay (p: pin/unpin, d: delete)
+  Ctrl+P .................... Pin/Unpin current context
+  ' + label ................. Jump to mark by label
+  [ / ] ..................... Prev/Next mark
+
+Filtering
+  signer:alice.near ......... Filter by signer
+  receiver:game.hot.tg ...... Filter by receiver
+  method:transfer ........... Filter by method name
+  action:FunctionCall ....... Filter by action type
+
+Other
+  Esc ....................... Clear/close input/overlay
+  Ctrl+L .................... Toggle Follow Latest
+  q or Ctrl+C ............... Quit` } />
     </box>
   );
 };
