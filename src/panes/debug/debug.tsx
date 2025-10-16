@@ -1,14 +1,16 @@
-import React, { useCallback, useEffect, useRef, useState } from "react"
+import React, { useEffect, useRef, useState } from "react"
 import blessed from "blessed"
 
-import Keybind from '../../services/Keybind'
+import DebugLog from "../../services/DebugLog"
+import Focus from "../../services/Focus"
 
 interface DebuggahProps {
-  debugEntries: any[]
-  isFocused: boolean
+  tabIndex: number
 }
 
-export const Debuggah: React.FC<DebuggahProps> = ({ debugEntries, isFocused }) => {
+const Debuggah: React.FC<DebuggahProps> = ({ tabIndex }) => {
+  const [isFocused, setIsFocused] = useState(false)
+
   const styles: any = {
     border: {
       type: 'line',
@@ -34,16 +36,36 @@ export const Debuggah: React.FC<DebuggahProps> = ({ debugEntries, isFocused }) =
   }
 
   useEffect(() => {
-    if (isFocused && ref.current) {
-      ref.current.focus()
+    const listener = (log: string, messages: string[]) => {
+      if (ref.current) {
+        ref.current.setContent(messages.join("\n"))
+      }
     }
-  }, [isFocused])
+    DebugLog.sharedInstance().emitter.on("log", listener)
+    if (ref.current) {
+      ref.current.setContent(DebugLog.sharedInstance().debugEntries.join("\n"))
+    }
+    return () => {
+      DebugLog.sharedInstance().emitter.removeListener("log", listener)
+    }
+  }, [])
   
   useEffect(() => {
-    if (ref.current) {
-      ref.current.setContent(debugEntries.join("\n"))
+    if (!ref.current) {
+      return
     }
-  }, [debugEntries])
+    const focused = Focus.sharedInstance().register(ref.current, tabIndex)
+    ref.current.on("focus", () => {
+      setIsFocused(true)
+    })
+    ref.current.on("blur", () => {
+      setIsFocused(false)
+    })
+    return () => {
+      Focus.sharedInstance().unregister(focused)
+    }
+  }, [tabIndex])
+
   
   const ref = useRef<blessed.Widgets.Log>(null)
     
@@ -60,5 +82,7 @@ export const Debuggah: React.FC<DebuggahProps> = ({ debugEntries, isFocused }) =
       class={styles}>
         
     </log>
-  );
-};
+  )
+}
+
+export default Debuggah
