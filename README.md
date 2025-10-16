@@ -19,6 +19,8 @@ NEAR_NETWORK=mainnet|testnet|localnet
 FASTNEAR_AUTH_TOKEN=your_token_here  # Required for mainnet
 ```
 
+See https://dashboard.fastnear.com to get an API key
+
 For mainnet access, obtain a FastNEAR authentication token and set `FASTNEAR_AUTH_TOKEN`.
 
 ### Installation
