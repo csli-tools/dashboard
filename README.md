@@ -91,6 +91,7 @@ See `CLAUDE.md` for detailed technical documentation including:
 
 - Real-time block monitoring with 1-second polling
 - Transaction decoding with action parsing
+- Automatic JSON string parsing in transaction data (e.g., `msg` fields)
 - Human-readable account names (alice.near)
 - Clipboard copy with full data (press 'c')
 - UTC time display in status bar

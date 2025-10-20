@@ -74,7 +74,9 @@ cp .env.template .env
 BlockPoller (1s interval) → getBlock() →
 getBlockTransactions() → Fetch chunks in parallel →
 Extract transactions → convertBlockToDetails() →
-BlockDetails with parsed transactions →
+decorateActionRecursively() → decorateFunctionCallArgs() →
+(decode base64 → parse JSON → auto-parse JSON strings → decode nested payloads) →
+BlockDetails with fully decoded & parsed transactions →
 Update UI → Broadcast to breakout panes via WebSocket
 ```
 
@@ -171,13 +173,17 @@ Located at `src/ui/StatusBar.tsx`. Displays network, block height, follow mode s
 
 ### JSON Auto-Parse
 
-Located at `src/utils/json-auto-parse.ts`. NEAR transactions often contain JSON-serialized strings as values (e.g., `"msg": "{\"foo\":\"bar\"}"`). The `autoParseNestedJson()` utility recursively detects and parses these strings for better readability.
+Located at `src/utils/json-auto-parse.ts` and integrated into `src/model/near-args-decoder.ts`. NEAR transactions often contain JSON-serialized strings as values (e.g., `"msg": "{\"foo\":\"bar\"}"`). These are automatically parsed during transaction decoding.
 
-- Enabled by default via `AUTO_PARSE_JSON_STRINGS=true` in `.env`
-- Detects strings starting with `'{"'` or `'["'`
-- Recursively processes up to 5 levels deep (prevents infinite loops)
-- Falls back gracefully if parsing fails
-- Applied in both `prepareTxForDisplay()` and `prepareTxForCopy()`
+- JSON parsing is automatic and always enabled (no config option)
+- Detects strings that look like JSON (starting with `{`/`[` and ending with `}`/`]`)
+- Key-agnostic: works on any field name (`msg`, `payload`, `data`, etc.)
+- Recursively processes up to 7 levels deep to handle deeply nested NEAR transaction structures
+- Falls back gracefully if parsing fails - returns original string
+- Applied during `decorateFunctionCallArgs` as part of the decoding process
+- Also handles nested base64 payloads (e.g., in `execute_intents` transactions)
+
+**Implementation**: Based on the clean Rust pattern from ratacat - decode, parse, and apply JSON parsing in a single pass.
 
 ### Binary/BORSH Arguments Display
 
