@@ -1,6 +1,7 @@
 import { watch } from 'chokidar';
 import { readFileSync, readdirSync, existsSync } from 'fs';
 import { join } from 'path';
+import { debugError } from '../utils/debug-logger';
 
 let ownedAccounts = new Set<string>();
 const listeners: Array<(ids: Set<string>) => void> = [];
@@ -47,9 +48,13 @@ function scanCredentials(targetDir: string) {
         if (parsed.account_id && typeof parsed.account_id === 'string') {
           ownedAccounts.add(parsed.account_id);
         }
-      } catch {}
+      } catch (e) {
+        debugError('credentials', `Failed to parse credential file: ${file}`, e);
+      }
     }
-  } catch {}
+  } catch (e) {
+    debugError('credentials', `Failed to scan credentials directory: ${targetDir}`, e);
+  }
 
   notifyListeners();
 }

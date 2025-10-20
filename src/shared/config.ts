@@ -64,14 +64,14 @@ export interface Config {
   RENDER_FPS_CHOICES: number[];
 
   SHOW_ARGS_BASE64: boolean;
-  AUTO_PARSE_JSON_STRINGS: boolean;
 }
 
 const CFG: Config = Object.freeze({
   NEAR_NETWORK: choice('NEAR_NETWORK', ['mainnet', 'testnet', 'localnet'] as const, 'testnet'),
   FASTNEAR_AUTH_TOKEN: str('FASTNEAR_AUTH_TOKEN'),
 
-  WS_PORT: int('WS_PORT', 63736, 1, 65535),
+  // Security: Minimum port 1024 to prevent binding to privileged ports
+  WS_PORT: int('WS_PORT', 63736, 1024, 65535),
 
   RPC_TIMEOUT_MS: int('RPC_TIMEOUT_MS', 8000, 100, 60000),
   RPC_RETRIES: int('RPC_RETRIES', 2, 0, 8),
@@ -94,7 +94,6 @@ const CFG: Config = Object.freeze({
   RENDER_FPS_CHOICES: intList('RENDER_FPS_CHOICES', [20, 30, 60], 1, 120),
 
   SHOW_ARGS_BASE64: bool('SHOW_ARGS_BASE64', false),
-  AUTO_PARSE_JSON_STRINGS: bool('AUTO_PARSE_JSON_STRINGS', true),
 });
 
 export function cfg(): Config { return CFG; }

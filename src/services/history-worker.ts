@@ -3,6 +3,7 @@
 
 import { parentPort } from 'node:worker_threads';
 import Database from 'better-sqlite3';
+import { debugError, debugLog } from '../utils/debug-logger';
 
 type PutBlockMsg = {
   type: 'putBlock';
@@ -60,6 +61,13 @@ parentPort.on('message', (m: Msg) => {
       db = new Database(m.dbPath);
       db.pragma('journal_mode = WAL');
       db.pragma('synchronous = NORMAL');
+
+      // Security: Limit database size to prevent resource exhaustion
+      // 1GB limit = 1024 * 1024 * 1024 bytes / 4096 bytes per page = 262144 pages
+      db.pragma('max_page_count = 262144');
+
+      // Also set a reasonable page size if not already set
+      db.pragma('page_size = 4096');
       db.exec(`
         CREATE TABLE IF NOT EXISTS blocks(
           height INTEGER PRIMARY KEY,
@@ -97,7 +105,10 @@ parentPort.on('message', (m: Msg) => {
       try {
         db.exec(`CREATE VIRTUAL TABLE IF NOT EXISTS txs_fts USING fts5(hash, signer, receiver, methods, raw);`);
         hasFTS = true;
-      } catch { hasFTS = false; }
+      } catch (e) {
+        hasFTS = false;
+        debugError('history-worker', 'Failed to create FTS5 virtual table - search will be degraded', e);
+      }
 
       stmtBlock = db.prepare(`INSERT OR REPLACE INTO blocks(height,hash,ts_ms,tx_count) VALUES (?,?,?,?)`);
       stmtTx = db.prepare(`INSERT OR REPLACE INTO txs(hash,height,signer,receiver,actions_json,raw_json) VALUES (?,?,?,?,?,?)`);
@@ -329,12 +340,16 @@ function buildSearchSQL(query: string, useFTS: boolean, order: 'asc'|'desc', lim
     }
   }
 
+  // Security: LIMIT value is safely bounded between 1-5000 via Math.max/min
+  // SQLite doesn't support parameterized LIMIT, but the numeric constraint prevents injection
+  const safeLimit = Math.max(1, Math.min(5000, limit));
+
   const sql = [
     select,
     from,
     where.length ? ` WHERE ${where.join(' AND ')} ` : '',
     ` ORDER BY t.height ${order.toLowerCase()==='asc'?'ASC':'DESC'}, t.hash `,
-    ` LIMIT ${Math.max(1, Math.min(5000, limit))} `
+    ` LIMIT ${safeLimit} `
   ].join('');
 
   return { sql, params };

@@ -28,7 +28,7 @@ import { JumpMarks, Mark as JMark } from './services/jump-marks'
 import { startCredentials, onOwnedAccounts, getSnapshot as getOwnedSnapshot } from './services/credentials'
 import { cfg } from './shared/config'
 import { ansiJson } from './utils/pretty'
-import { autoParseNestedJson } from './utils/json-auto-parse'
+import { sanitizeDbPath, sanitizeCredentialsPath } from './utils/path-security'
 
 const JSON_FORMATTER = cfg().JSON_FORMATTER;
 const { formatJson: formatJsonWorker } = require('./utils/json-formatter-worker');
@@ -73,7 +73,12 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, wss }) => {
   const pushToast = useCallback((text: string, level: Toast['level']='info') => {
     const id = toastId.current++;
     const createdAt = Date.now();
-    setToasts(t => [...t, { id, text, level, createdAt }]);
+    setToasts(t => {
+      // Limit toasts to prevent memory leak (keep newest 10)
+      const MAX_TOASTS = 10;
+      const newToasts = [...t, { id, text, level, createdAt }];
+      return newToasts.slice(-MAX_TOASTS);
+    });
     setTimeout(() => { setToasts(t => t.filter(x => x.id !== id)); }, 2300);
   }, []);
 
@@ -95,8 +100,15 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, wss }) => {
   const network = cfg().NEAR_NETWORK;
 
   useEffect(() => {
-    const dbPath = process.env.SQLITE_DB_PATH || './csli_history.db';
-    startHistory(dbPath);
+    try {
+      const dbPath = process.env.SQLITE_DB_PATH || './csli_history.db';
+      const validatedPath = sanitizeDbPath(dbPath);
+      startHistory(validatedPath);
+    } catch (e) {
+      console.error('Invalid database path:', e);
+      // Fallback to safe default
+      startHistory('./csli_history.db');
+    }
   }, []);
 
   // Connection grace period: wait 3 seconds before showing "no connection" indicators
@@ -115,11 +127,42 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, wss }) => {
   useEffect(() => { setSetting('autopin_slash_tx', !!autoPinSlash); }, [autoPinSlash]);
 
   useEffect(() => {
-    const dir = process.env.NEAR_CREDENTIALS_DIR || path.join(os.homedir(), '.near-credentials');
-    startCredentials(dir, network);
-    const off = onOwnedAccounts((ids) => { setOwnedAccounts(new Set(ids)); });
-    return off;
+    try {
+      const dir = process.env.NEAR_CREDENTIALS_DIR || path.join(os.homedir(), '.near-credentials');
+      const validatedDir = sanitizeCredentialsPath(dir);
+      startCredentials(validatedDir, network);
+      const off = onOwnedAccounts((ids) => { setOwnedAccounts(new Set(ids)); });
+      return off;
+    } catch (e) {
+      console.error('Invalid credentials path:', e);
+      // Use default safe path
+      const defaultDir = path.join(os.homedir(), '.near-credentials');
+      startCredentials(defaultDir, network);
+      const off = onOwnedAccounts((ids) => { setOwnedAccounts(new Set(ids)); });
+      return off;
+    }
   }, [network]);
+
+  // Recursively decorate FunctionCall actions, including those nested in Delegate actions
+  const decorateActionRecursively = (action: any): any => {
+    if (action.FunctionCall) {
+      return decorateFunctionCallArgs(action);
+    }
+
+    if (action.Delegate) {
+      const delegate = { ...action.Delegate };
+      if (delegate.delegate_action?.actions) {
+        delegate.delegate_action = {
+          ...delegate.delegate_action,
+          actions: delegate.delegate_action.actions.map((a: any) => decorateActionRecursively(a))
+        };
+      }
+      return { Delegate: delegate };
+    }
+
+    // Return other action types as-is
+    return action;
+  };
 
   const recomputeOwnedCounts = useCallback((blocks: BlockDetails[], owned: Set<string>) => {
     const m = new Map<number, number>();
@@ -182,7 +225,7 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, wss }) => {
         chunks_included: nearBlock.header.chunks_included,
         transactions: (nearBlock.transactions || []).map((tx: any) => ({
           ...tx,
-          actions: (tx.actions || []).map((a: any) => a.FunctionCall ? decorateFunctionCallArgs(a) : a)
+          actions: (tx.actions || []).map((a: any) => decorateActionRecursively(a))
         })),
         chunks: nearBlock.chunks.map((chunk: any) => ({
           chunk_hash: chunk.chunk_hash,
@@ -272,17 +315,11 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, wss }) => {
 
   // Normalize one tx for display: decode args, optionally drop args_base64, compact huge fields
   const prepareTxForDisplay = (tx: any) => {
-    const decoded = tx; // Transaction already decorated by decorateFunctionCallArgs
+    const decoded = tx; // Transaction already has decoded args and parsed JSON strings
     const showBase64 = cfg().SHOW_ARGS_BASE64;
-    const autoParse = cfg().AUTO_PARSE_JSON_STRINGS;
 
     // Deep clone and clean up actions - conditionally remove args_base64 (recursively)
     let prettyActions = decoded.actions.map((action: any) => cleanAction(action, showBase64));
-
-    // Auto-parse JSON-serialized strings if enabled
-    if (autoParse) {
-      prettyActions = autoParseNestedJson(prettyActions);
-    }
 
     // Apply middle-truncation to binary args (args_bytes present)
     prettyActions = prettyActions.map((action: any) => {
@@ -314,6 +351,10 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, wss }) => {
       public_key: shortMiddle(decoded.public_key, 20),
       signature: shortMiddle(decoded.signature, 20),
       actions: prettyActions,
+      // Include optional fields
+      ...(decoded.priority_fee !== undefined ? { priority_fee: decoded.priority_fee } : {}),
+      // Include any additional fields that might contain JSON
+      ...(decoded.msg ? { msg: decoded.msg } : {}),
     };
 
     return pruned;
@@ -321,17 +362,11 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, wss }) => {
 
   // Full transaction data for clipboard (no truncation)
   const prepareTxForCopy = (tx: any) => {
-    const decoded = tx; // Transaction already decorated by decorateFunctionCallArgs
+    const decoded = tx; // Transaction already has decoded args and parsed JSON strings
     const showBase64 = cfg().SHOW_ARGS_BASE64;
-    const autoParse = cfg().AUTO_PARSE_JSON_STRINGS;
 
     // Deep clone and clean up actions - conditionally remove args_base64 (recursively)
     let prettyActions = decoded.actions.map((action: any) => cleanAction(action, showBase64));
-
-    // Auto-parse JSON-serialized strings if enabled
-    if (autoParse) {
-      prettyActions = autoParseNestedJson(prettyActions);
-    }
 
     // For binary args, include full base64 (not truncated)
     prettyActions = prettyActions.map((action: any) => {
@@ -355,6 +390,10 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, wss }) => {
       public_key: decoded.public_key,      // Full, not truncated
       signature: decoded.signature,        // Full, not truncated
       actions: prettyActions,
+      // Include optional fields
+      ...(decoded.priority_fee !== undefined ? { priority_fee: decoded.priority_fee } : {}),
+      // Include any additional fields that might contain JSON
+      ...(decoded.msg ? { msg: decoded.msg } : {}),
     };
 
     return full;
@@ -405,7 +444,7 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, wss }) => {
     if (!tx) { pushToast('Tx not found', 'warn'); return; }
     const txDecorated = {
       ...tx,
-      actions: (tx.actions || []).map((a: any) => a.FunctionCall ? decorateFunctionCallArgs(a) : a)
+      actions: (tx.actions || []).map((a: any) => decorateActionRecursively(a))
     };
     await displayTransaction(txDecorated);
     setSelectedTxHash(hash);
@@ -421,9 +460,9 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, wss }) => {
     setSelectedTxIndex(index)
     const blockInfo = selectedBlock
     if (!blockInfo) return
-    const tx = (blockInfo.transactions || []).filter((t: any) => txMatchesFilter(t, compiled)).find((t: any) => t.hash === selectedTxHash)
+    const tx = (blockInfo.transactions || []).filter((t: any) => txMatchesFilter(t, compiled)).find((t: any) => t.hash === txHash)
     if (tx) await displayTransaction(tx)
-  }, [selectedBlock, compiled, selectedTxHash, displayTransaction])
+  }, [selectedBlock, compiled, displayTransaction])
 
   useEffect(() => {
     if (!selectedBlock || !selectedTxHash) return

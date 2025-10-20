@@ -1,4 +1,5 @@
 import { cfg } from '../shared/config';
+import { debugError } from '../utils/debug-logger';
 
 // ---- Network config ----
 export interface NEARConfig {
@@ -194,22 +195,30 @@ export class BlockPoller {
         const start = this.lastHeight + 1;
         const end = Math.min(latestHeight, start + maxCatchup - 1);
 
+        // Track successfully processed blocks to avoid gaps on failure
+        let lastSuccessfulHeight = this.lastHeight;
+
         for (let h = start; h <= end; h++) {
           try {
             const br = await getBlock({ block_id: h });
             const block = br.result;
             const transactions = await getBlockTransactions(block);
             onNewBlock({ ...block, transactions });
-            this.lastHeight = h;
+            lastSuccessfulHeight = h;
           } catch (e) {
-            // keep going; you'll naturally retry next tick
-            // optional: log outside to avoid render-path noise
-            // console.error(`poller: block ${h} failed`, e);
+            // Stop processing on first failure to avoid gaps in block sequence
+            // The failed block will be retried on the next polling cycle
+            debugError('BlockPoller', `Failed to fetch/process block ${h}, stopping batch`, e);
+            break;
           }
         }
+
+        // Update lastHeight only with the last successfully processed block
+        this.lastHeight = lastSuccessfulHeight;
       }
-    } catch {
-      // swallow; breaker/open state is handled in sendRpc
+    } catch (e) {
+      // Circuit breaker/open state is handled in sendRpc
+      debugError('BlockPoller', 'Failed to fetch latest block', e);
     } finally {
       this.running = false;
       if (!this.stopped) setTimeout(() => this.loop(onNewBlock), this.intervalMs);
