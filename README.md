@@ -2,6 +2,8 @@
 
 Terminal-based block explorer and development tool for NEAR Protocol. Provides real-time monitoring of blockchain activity through a React-based terminal UI using the blessed library.
 
+![CSLI Dashboard Screenshot](static/csli-dashboard-screenshot.png)
+
 ## Setup
 
 ### Environment Configuration
