@@ -1,4 +1,5 @@
 import React from 'react';
+import { AppError, ErrorSeverity, logError } from '../utils/error-handler';
 
 type Props = { children: React.ReactNode };
 type State = { error?: Error; info?: { componentStack: string } };
@@ -12,7 +13,22 @@ export default class ErrorBoundary extends React.Component<Props, State> {
 
   componentDidCatch(error: Error, info: React.ErrorInfo) {
     this.setState({ info: { componentStack: info.componentStack || '' } });
-    // Keep logging lightweight to avoid re-entrancy
+
+    // Log error with centralized handler
+    const appError = error instanceof AppError ? error : new AppError(
+      error.message,
+      'REACT_ERROR',
+      ErrorSeverity.ERROR,
+      {
+        component: 'ErrorBoundary',
+        componentStack: info.componentStack || undefined
+      },
+      error
+    );
+
+    logError(appError);
+
+    // Also write to local file for debugging
     try {
       require('fs').appendFileSync('csli-errors.log', `[${new Date().toISOString()}] ${error.stack || error}\n${info.componentStack}\n\n`);
     } catch {}

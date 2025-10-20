@@ -42,6 +42,7 @@ export interface Config {
   FASTNEAR_AUTH_TOKEN?: string;
 
   WS_PORT: number;
+  WS_MAX_CONNECTIONS: number;
 
   RPC_TIMEOUT_MS: number;
   RPC_RETRIES: number;
@@ -72,6 +73,7 @@ const CFG: Config = Object.freeze({
 
   // Security: Minimum port 1024 to prevent binding to privileged ports
   WS_PORT: int('WS_PORT', 63736, 1024, 65535),
+  WS_MAX_CONNECTIONS: int('WS_MAX_CONNECTIONS', 100, 1, 1000),
 
   RPC_TIMEOUT_MS: int('RPC_TIMEOUT_MS', 8000, 100, 60000),
   RPC_RETRIES: int('RPC_RETRIES', 2, 0, 8),

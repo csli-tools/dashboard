@@ -4,6 +4,11 @@ import { cfg } from './shared/config';
 import { installRenderScheduler } from './ui/scheduled-screen';
 import ErrorBoundary from './panes/ErrorBoundary';
 import { Dashboard } from './battle-station';
+import { WebSocketManager } from './services/websocket-manager';
+import { installGlobalErrorHandlers } from './utils/error-handler';
+
+// Install global error handlers for uncaught exceptions
+installGlobalErrorHandlers();
 
 // Choose runtime: neo-blessed (default) or classic blessed
 const blessedRuntime = cfg().BLESSED_RUNTIME;
@@ -23,22 +28,12 @@ const screen = blessed.screen({
 // Coalesced rendering with live FPS tuning
 const scheduler = installRenderScheduler(screen, { fps: cfg().RENDER_FPS, onLateFrameMs: 20 });
 
-// WebSocket server with keep-alive (avoids send-buffer stalls)
+// WebSocket server with thread-safe connection management
 const wss = new Server({ port: cfg().WS_PORT });
-type ExtWS = WebSocket & { isAlive?: boolean };
-wss.on('connection', (ws: ExtWS) => {
-  ws.isAlive = true;
-  ws.on('pong', () => { ws.isAlive = true; });
+const wsManager = new WebSocketManager(wss, {
+  maxConnections: cfg().WS_MAX_CONNECTIONS ?? 100,
+  maxBufferSize: cfg().WS_HIGH_WATER_MARK ?? 1024 * 1024
 });
-const ka = setInterval(() => {
-  for (const ws of wss.clients) {
-    const s = ws as ExtWS;
-    if (s.isAlive === false) { try { s.terminate(); } catch {} continue; }
-    s.isAlive = false;
-    try { s.ping(); } catch {}
-  }
-}, 15_000);
-wss.on('close', () => clearInterval(ka));
 
 // Ctrl+O — cycle through FPS choices from .env
 const choices = cfg().RENDER_FPS_CHOICES;
@@ -53,6 +48,7 @@ screen.key(['C-o'], () => {
 
 // Quit
 function shutdown() {
+  try { wsManager.closeAll(); } catch {}
   try { scheduler.uninstall(); } catch {}
   try { screen.destroy(); } catch {}
   process.exit(0);
@@ -64,7 +60,7 @@ process.on('SIGTERM', shutdown);
 // Render app
 render(
   <ErrorBoundary>
-    <Dashboard screen={screen} wss={wss} />
+    <Dashboard screen={screen} wss={wss} wsManager={wsManager} />
   </ErrorBoundary>,
   screen
 );

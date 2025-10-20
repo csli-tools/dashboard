@@ -1,5 +1,6 @@
 import { cfg } from '../shared/config';
 import { debugError } from '../utils/debug-logger';
+import { AppError, ErrorSeverity, isNetworkError } from '../utils/error-handler';
 
 // ---- Network config ----
 export interface NEARConfig {
@@ -78,7 +79,12 @@ export async function sendRpc(method: string, params: any, opts: RpcOptions = {}
   const retries = opts.retries ?? cfg().RPC_RETRIES;
 
   if (breaker.shouldBlock()) {
-    throw new Error('RPC circuit open; backing off');
+    throw new AppError(
+      'RPC circuit breaker is open due to repeated failures',
+      'CIRCUIT_OPEN',
+      ErrorSeverity.WARNING,
+      { metadata: { method, network: conf.networkId } }
+    );
   }
 
   const headers: Record<string, string> = {
@@ -100,18 +106,55 @@ export async function sendRpc(method: string, params: any, opts: RpcOptions = {}
 
       if (!res.ok) {
         const text = await res.text().catch(() => '');
-        throw new Error(`HTTP ${res.status}: ${text}`);
+        throw new AppError(
+          `HTTP ${res.status}: ${text}`,
+          res.status === 401 ? 'AUTH_ERROR' : 'HTTP_ERROR',
+          res.status >= 500 ? ErrorSeverity.ERROR : ErrorSeverity.WARNING,
+          { metadata: { method, status: res.status, response: text } }
+        );
       }
 
       const json = await res.json();
-      if (json.error) throw new Error(`RPC error: ${JSON.stringify(json.error)}`);
+      if (json.error) {
+        throw new AppError(
+          `RPC error: ${json.error.message || JSON.stringify(json.error)}`,
+          'RPC_ERROR',
+          ErrorSeverity.ERROR,
+          { metadata: { method, error: json.error } }
+        );
+      }
 
       breaker.onSuccess();
       return json;
-    } catch (err) {
+    } catch (err: any) {
       clearTimeout(to);
       breaker.onFailure();
-      if (attempt >= retries) throw err;
+
+      // If it's already an AppError, preserve it
+      if (err instanceof AppError) {
+        if (attempt >= retries) throw err;
+      } else {
+        // Convert to AppError with appropriate context
+        const isNetwork = isNetworkError(err);
+        const appError = new AppError(
+          err.message || 'RPC request failed',
+          isNetwork ? 'NETWORK_ERROR' : 'RPC_ERROR',
+          ErrorSeverity.ERROR,
+          {
+            metadata: {
+              method,
+              attempt: attempt + 1,
+              maxRetries: retries,
+              network: conf.networkId,
+              originalError: err.code || err.name
+            }
+          },
+          err
+        );
+
+        if (attempt >= retries) throw appError;
+      }
+
       const delay = jitter(400 * Math.pow(2, attempt));
       await sleep(Math.min(delay, 2000));
       attempt++;

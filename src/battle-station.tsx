@@ -2,6 +2,8 @@ import React, {useState, useEffect, useCallback, useRef, useMemo} from 'react'
 import { Server } from 'ws'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import { WebSocketManager } from './services/websocket-manager'
+import { BlessedScreen, NEARAction, Clipboardy, JSONFormatter, Mark as MarkType } from './types/common'
 
 import BlockDetailsPane from './panes/blocks/block-details'
 import { TxHashes } from './panes/transactions/tx-hashes'
@@ -33,15 +35,20 @@ import { sanitizeDbPath, sanitizeCredentialsPath } from './utils/path-security'
 const JSON_FORMATTER = cfg().JSON_FORMATTER;
 const { formatJson: formatJsonWorker } = require('./utils/json-formatter-worker');
 const { formatJsonWasm } = require('./utils/json-formatter-wasm');
-const formatJson: (v: any, s?: number) => Promise<string> =
+const formatJson: JSONFormatter =
   JSON_FORMATTER === 'wasm' ? formatJsonWasm : formatJsonWorker;
 
-interface DashboardProps { screen: any; wss: Server }
+interface DashboardProps {
+  screen: BlessedScreen;
+  wss: Server;
+  wsManager: WebSocketManager;
+}
 const WS_HWM_BYTES = cfg().WS_HIGH_WATER_MARK;
 
-let clipboardy: any = null; try { clipboardy = require('clipboardy').default; } catch {}
+let clipboardy: Clipboardy | null = null;
+try { clipboardy = require('clipboardy').default; } catch {}
 
-export const Dashboard: React.FC<DashboardProps> = ({screen, wss }) => {
+export const Dashboard: React.FC<DashboardProps> = ({screen, wss, wsManager }) => {
   const [focusedPane, setFocusedPane] = useState(0);
   const [selectedBlock, setSelectedBlock] = useState<BlockDetails | undefined>(undefined);
   const [selectedTxHash, setSelectedTxHash] = useState<string | undefined>(undefined);
@@ -144,7 +151,7 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, wss }) => {
   }, [network]);
 
   // Recursively decorate FunctionCall actions, including those nested in Delegate actions
-  const decorateActionRecursively = (action: any): any => {
+  const decorateActionRecursively = (action: NEARAction): NEARAction => {
     if (action.FunctionCall) {
       return decorateFunctionCallArgs(action);
     }
@@ -154,7 +161,7 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, wss }) => {
       if (delegate.delegate_action?.actions) {
         delegate.delegate_action = {
           ...delegate.delegate_action,
-          actions: delegate.delegate_action.actions.map((a: any) => decorateActionRecursively(a))
+          actions: delegate.delegate_action.actions.map((a: NEARAction) => decorateActionRecursively(a))
         };
       }
       return { Delegate: delegate };
@@ -197,16 +204,8 @@ export const Dashboard: React.FC<DashboardProps> = ({screen, wss }) => {
   }, []);
 
   const broadcast = useCallback((payload: WSCSLIPayload) => {
-    const serialized = JSON.stringify(payload)
-    wss.clients.forEach(function each(client: any) {
-      if (client.readyState !== 1) return
-      const buffered = (client as any).bufferedAmount ?? 0
-      if (buffered > WS_HWM_BYTES) {
-        if (payload.type !== 'block' && payload.type !== 'tx') return
-      }
-      client.send(serialized)
-    });
-  }, [wss])
+    wsManager.broadcast(payload);
+  }, [wsManager])
 
   const onNewBlock = useCallback((nearBlock: any) => {
     // Mark connection as established when first block arrives
