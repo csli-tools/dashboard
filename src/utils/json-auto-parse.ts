@@ -39,7 +39,7 @@ export function autoParseNestedJson(obj: any, maxDepth = 5, currentDepth = 0): a
   if (typeof obj === 'string') {
     // Quick check: does it look like JSON?
     const trimmed = obj.trim();
-    if ((trimmed.startsWith('{"') || trimmed.startsWith('["')) &&
+    if ((trimmed.startsWith('{') || trimmed.startsWith('[')) &&
         (trimmed.endsWith('}') || trimmed.endsWith(']'))) {
       try {
         const parsed = JSON.parse(trimmed);
