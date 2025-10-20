@@ -8,9 +8,11 @@ interface BlockDetailsPaneProps {
   blockHeights: BlockDetails[]
   isFocused: boolean
   selectBlock: (block: BlockDetails) => void
+  ownedCounts?: Map<number, number>
+  focusedPane: number
 }
 
-const BlockDetailsPane: React.FC<BlockDetailsPaneProps> = ({blockHeights, isFocused, selectBlock }) => {
+const BlockDetailsPane: React.FC<BlockDetailsPaneProps> = ({blockHeights, isFocused, selectBlock, ownedCounts, focusedPane }) => {
   
   const [selectedIndex, setSelectedIndex] = useState<number>(0)
   const [selectedBlock, setSelectedBlock] = useState<BlockDetails | undefined>(undefined)
@@ -165,9 +167,11 @@ const BlockDetailsPane: React.FC<BlockDetailsPaneProps> = ({blockHeights, isFocu
     } catch {}
   }, [isFocused, selectedIndex]);
 
+  const label = focusedPane === 0 ? " Blocks - Press 'c' to copy block txs " : "Blocks";
+
   return (
       <list
-        label="Blocks"
+        label={label}
         width="50%"
         height="30%"
         border={borderConfig}
@@ -188,7 +192,9 @@ const BlockDetailsPane: React.FC<BlockDetailsPaneProps> = ({blockHeights, isFocu
         items={blockHeights.map(details => {
           const date = details.timestamp ? new Date(details.timestamp).toLocaleTimeString() : ''
           const txCount = details.transactions.length
-          return `${details.height} | ${date} | ${txCount} txs`
+          const owned = ownedCounts?.get(details.height) || 0
+          const ownedBadge = owned > 0 ? ` ★${owned}` : ''
+          return `${details.height} | ${date} | ${txCount} txs${ownedBadge}`
         })}
       />
 

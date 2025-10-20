@@ -2,6 +2,8 @@
 
 Terminal-based block explorer and development tool for NEAR Protocol. Provides real-time monitoring of blockchain activity through a React-based terminal UI using the blessed library.
 
+![CSLI Dashboard Screenshot](static/csli-dashboard-screenshot.png)
+
 ## Setup
 
 ### Environment Configuration
@@ -89,6 +91,7 @@ See `CLAUDE.md` for detailed technical documentation including:
 
 - Real-time block monitoring with 1-second polling
 - Transaction decoding with action parsing
+- Automatic JSON string parsing in transaction data (e.g., `msg` fields)
 - Human-readable account names (alice.near)
 - Clipboard copy with full data (press 'c')
 - UTC time display in status bar

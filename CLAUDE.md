@@ -66,7 +66,7 @@ cp .env.template .env
 
 4. **State Management**: Component state with props drilling. No global state management library.
 
-5. **Keyboard Navigation**: Tab cycles between panes, arrow keys navigate within panes. Events handled through `Keybind.sharedInstance()`.
+5. **Keyboard Navigation**: Tab cycles forward through panes (0→1→2), Shift+Tab cycles backward (0→2→1). Arrow keys navigate within panes. Events handled through `Keybind.sharedInstance()`.
 
 ### Data Flow
 
@@ -74,7 +74,9 @@ cp .env.template .env
 BlockPoller (1s interval) → getBlock() →
 getBlockTransactions() → Fetch chunks in parallel →
 Extract transactions → convertBlockToDetails() →
-BlockDetails with parsed transactions →
+decorateActionRecursively() → decorateFunctionCallArgs() →
+(decode base64 → parse JSON → auto-parse JSON strings → decode nested payloads) →
+BlockDetails with fully decoded & parsed transactions →
 Update UI → Broadcast to breakout panes via WebSocket
 ```
 
@@ -125,11 +127,84 @@ Transaction data uses separate formatters for display vs export:
 - `txData` state - ANSI-colored JSON for display (via `ansiJson()`)
 - `rawTxData` state - Plain JSON for clipboard (via `JSON.stringify()`)
 
-Pressing 'c' copies `rawTxData` to system clipboard (pbcopy/clip/xclip). Display version shows truncated fields to save screen space, clipboard version contains complete data.
+#### Context-Aware Copy Behavior
+
+Pressing 'c' copies different data based on which pane is focused:
+
+**Blocks Pane (focusedPane === 0)**: Copies all transactions for the selected block
+```json
+{
+  "network": "testnet",
+  "block_height": 123456789,
+  "block_hash": "ABC...",
+  "timestamp": "2025-10-17T15:03:58Z",
+  "tx_count": 5,
+  "txs": [/* human-readable transactions */]
+}
+```
+
+**Transactions Pane (focusedPane === 1)**: Copies both raw and decoded formats
+```json
+{
+  "network": "testnet",
+  "block_height": 123456789,
+  "block_timestamp": "2025-10-17T15:03:58Z",
+  "tx_hash": "8ZqXj...",
+  "chain": {/* raw blockchain data with base64 args */},
+  "human": {/* decoded with parsed args */}
+}
+```
+
+**Transaction Details Pane (focusedPane === 2)**: Copies human-readable only (existing behavior)
+```json
+{
+  "hash": "...",
+  "signer": "alice.near",
+  "receiver": "bob.near",
+  "actions": [...]
+}
+```
+
+Pane labels show copy hints only when focused. Display version shows truncated fields to save screen space, clipboard version contains complete data.
 
 ### Status Bar
 
 Located at `src/ui/StatusBar.tsx`. Displays network, block height, follow mode status, FPS, and UTC time. Time uses ISO 8601 format (HH:MM:SS UTC) via `new Date().toISOString()`.
+
+### JSON Auto-Parse
+
+Located at `src/utils/json-auto-parse.ts` and integrated into `src/model/near-args-decoder.ts`. NEAR transactions often contain JSON-serialized strings as values (e.g., `"msg": "{\"foo\":\"bar\"}"`). These are automatically parsed during transaction decoding.
+
+- JSON parsing is automatic and always enabled (no config option)
+- Detects strings that look like JSON (starting with `{`/`[` and ending with `}`/`]`)
+- Key-agnostic: works on any field name (`msg`, `payload`, `data`, etc.)
+- Recursively processes up to 7 levels deep to handle deeply nested NEAR transaction structures
+- Falls back gracefully if parsing fails - returns original string
+- Applied during `decorateFunctionCallArgs` as part of the decoding process
+- Also handles nested base64 payloads (e.g., in `execute_intents` transactions)
+
+**Implementation**: Based on the clean Rust pattern from ratacat - decode, parse, and apply JSON parsing in a single pass.
+
+### Binary/BORSH Arguments Display
+
+Located in `src/model/near-args-decoder.ts`. Function call arguments that are binary or BORSH-serialized are handled specially:
+
+- **Display**: Shows middle-truncated base64 (40 chars each side) with `[binary]` suffix
+  - Example: `eJyVkN1u2z...4g1kFxkBxYz [binary]`
+- **Clipboard**: Preserves full base64 string in `args_bytes` field for complete data export
+- Detection: Uses regex `/^[\x20-\x7E\s]*$/` to identify non-printable characters
+
+### Toast Notifications
+
+Located at `src/ui/Toast.tsx`. Toasts provide user feedback with fade-in/fade-out animations:
+
+- **Width**: 50% of screen (prevents text wrapping)
+- **Duration**: 2300ms total (200ms fade-in, 1900ms steady, 200ms fade-out)
+- **Animation**: Color-based fade using blessed's color palette
+  - Fade in: `bright` colors (brightgreen, brightyellow, brightred)
+  - Steady: Normal colors (green, yellow, red)
+  - Fade out: `light` colors for dimming effect
+- **Performance**: Re-renders every 100ms when toasts are visible (~23 renders per toast lifetime)
 
 ## Current Limitations
 
