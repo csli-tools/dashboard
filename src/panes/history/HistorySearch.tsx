@@ -4,7 +4,7 @@ type Props = {
   open: boolean;
   onClose: () => void;
   onOpenTx: (hash: string) => Promise<void>;
-  search: (query: string) => Array<{ hash: string; signer?: string; receiver?: string; block_height: number; ts_ms: number }>;
+  search: (query: string) => Promise<Array<{ hash: string; signer?: string; receiver?: string; height: number; ts_ms: number; methods?: string }>>;
 };
 
 export const HistorySearch: React.FC<Props> = ({ open, onClose, onOpenTx, search }) => {
@@ -18,16 +18,40 @@ export const HistorySearch: React.FC<Props> = ({ open, onClose, onOpenTx, search
     if (open && inputRef.current) {
       try {
         inputRef.current.focus();
+        inputRef.current.setValue(query);
         inputRef.current.screen.render();
       } catch {}
     }
+  }, [open, query]);
+
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+
+    const submitHandler = (v: string) => {
+      if (!open) return;
+      setQuery(v);
+    };
+
+    try {
+      el.on('submit', submitHandler);
+    } catch {}
+
+    return () => {
+      try {
+        el.removeListener('submit', submitHandler);
+      } catch {}
+    };
   }, [open]);
 
   useEffect(() => {
     if (query.length >= 2) {
-      const found = search(query);
-      setResults(found);
-      setSelectedIndex(0);
+      search(query).then(found => {
+        setResults(found);
+        setSelectedIndex(0);
+      }).catch(() => {
+        setResults([]);
+      });
     } else {
       setResults([]);
     }
@@ -85,8 +109,6 @@ export const HistorySearch: React.FC<Props> = ({ open, onClose, onOpenTx, search
         inputOnFocus={true}
         keys={true}
         mouse={true}
-        value={query}
-        onSubmit={(v: string) => setQuery(v)}
       />
 
       {/* @ts-ignore */}

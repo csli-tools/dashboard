@@ -6,9 +6,10 @@ interface TxHashesProps {
   txHashes: string[]
   isFocused: boolean
   selectTxHash: (txHash: string, index: number) => void
+  focusedPane: number
 }
 
-export const TxHashes: React.FC<TxHashesProps> = ({txHashes, isFocused, selectTxHash }) => {
+export const TxHashes: React.FC<TxHashesProps> = ({txHashes, isFocused, selectTxHash, focusedPane }) => {
   const [selectedIndex, setSelectedIndex] = useState<number>(0)
   const borderConfig: any = {
     type: 'line',
@@ -108,10 +109,12 @@ export const TxHashes: React.FC<TxHashesProps> = ({txHashes, isFocused, selectTx
     }
   }, [txHashes, selectedIndex, selectTxHash])
 
+  const label = focusedPane === 1 ? " Transaction hashes - Press 'c' to copy tx (raw + human) " : "Transaction hashes";
+
   return (
     <box
       keys={true}
-      label="Transaction hashes"
+      label={label}
       left="50%"
       width="50%"
       height="30%"

@@ -28,8 +28,9 @@ export const FilterBar: React.FC<Props> = ({ value, focused, onChange, onCommit,
     const el = ref.current;
     if (!el) return;
 
-    const submitHandler = () => {
+    const submitHandler = (v: string) => {
       if (!focused) return;
+      onChange(v);
       onCommit();
     };
 
@@ -51,7 +52,7 @@ export const FilterBar: React.FC<Props> = ({ value, focused, onChange, onCommit,
         el.removeKey(['escape'], cancelHandler);
       } catch {}
     };
-  }, [focused, onCommit, onCancel]);
+  }, [focused, onChange, onCommit, onCancel]);
 
   if (!focused) return null as any;
 
@@ -69,11 +70,6 @@ export const FilterBar: React.FC<Props> = ({ value, focused, onChange, onCommit,
       inputOnFocus={true}
       keys={true}
       mouse={true}
-      value={value}
-      onSubmit={(v: string) => {
-        onChange(v);
-        onCommit();
-      }}
     />
   );
 };

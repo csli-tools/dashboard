@@ -8,8 +8,8 @@ export interface Mark {
 }
 
 interface Persistence {
-  list: () => Promise<Array<{ label: string; pane: number; block_height?: number; tx_hash?: string; pinned: boolean; created_at: number }>>;
-  put: (mark: { label: string; pane: number; block_height?: number; tx_hash?: string; pinned?: boolean }) => Promise<void>;
+  list: () => Promise<Array<{ label: string; pane: number; height?: number; tx?: string; when_ms: number; pinned: number }>>;
+  put: (mark: { label: string; pane: number; height?: number; tx?: string; pinned?: boolean; when_ms?: number }) => Promise<void>;
   del: (label: string) => Promise<void>;
   setPinned: (label: string, pinned: boolean) => Promise<void>;
 }
@@ -31,10 +31,10 @@ export class JumpMarks {
     this.marks = rows.map(r => ({
       label: r.label,
       pane: r.pane as 0 | 1 | 2,
-      blockHeight: r.block_height,
-      txHash: r.tx_hash,
-      pinned: r.pinned,
-      createdAt: r.created_at
+      blockHeight: r.height,
+      txHash: r.tx,
+      pinned: !!r.pinned,
+      createdAt: r.when_ms
     }));
 
     // Set autoLabelCounter to highest numeric label + 1
@@ -79,9 +79,10 @@ export class JumpMarks {
       await this.persistence.put({
         label,
         pane,
-        block_height: blockHeight,
-        tx_hash: txHash,
-        pinned: existing?.pinned || false
+        height: blockHeight,
+        tx: txHash,
+        pinned: existing?.pinned || false,
+        when_ms: existing?.createdAt || Date.now()
       });
     }
   }

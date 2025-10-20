@@ -15,6 +15,8 @@ const render = createBlessedRenderer(blessed);
 const screen = blessed.screen({
   smartCSR: true,
   autoPadding: true,
+  sendFocus: true,
+  warnings: false,
   title: `CSLI Dashboard • ${cfg().RENDER_FPS} FPS`
 });
 

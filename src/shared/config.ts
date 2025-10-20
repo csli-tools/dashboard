@@ -64,6 +64,7 @@ export interface Config {
   RENDER_FPS_CHOICES: number[];
 
   SHOW_ARGS_BASE64: boolean;
+  AUTO_PARSE_JSON_STRINGS: boolean;
 }
 
 const CFG: Config = Object.freeze({
@@ -93,6 +94,7 @@ const CFG: Config = Object.freeze({
   RENDER_FPS_CHOICES: intList('RENDER_FPS_CHOICES', [20, 30, 60], 1, 120),
 
   SHOW_ARGS_BASE64: bool('SHOW_ARGS_BASE64', false),
+  AUTO_PARSE_JSON_STRINGS: bool('AUTO_PARSE_JSON_STRINGS', true),
 });
 
 export function cfg(): Config { return CFG; }

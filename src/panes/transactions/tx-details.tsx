@@ -1,14 +1,29 @@
 import * as React from 'react';
 import { useEffect, useMemo, useRef } from 'react';
 import { softWrapLongTokensAnsiAware, ensureTrailingNewline } from '../../utils/terminal-wrap';
+import { DebugBox } from '../../ui/DebugBox';
 
 type Props = {
   txData: string;
   isFocused: boolean;
-  mode: 'pretty' | 'raw';
+  debugVisible: boolean;
+  rawLen: number;
+  txLen: number;
+  seq: number;
+  clipboardyOk: boolean;
+  focusedPane: number;
 };
 
-export const TxDetails: React.FC<Props> = React.memo(({ txData, isFocused, mode }) => {
+export const TxDetails: React.FC<Props> = React.memo(({
+  txData,
+  isFocused,
+  debugVisible,
+  rawLen,
+  txLen,
+  seq,
+  clipboardyOk,
+  focusedPane
+}) => {
   const boxRef = useRef<any>(null);
 
   // Border config with only top border visible
@@ -80,7 +95,7 @@ export const TxDetails: React.FC<Props> = React.memo(({ txData, isFocused, mode 
     return () => { try { el.removeKey(['up','down','left','right','pageup','pagedown','home','end'], handler); } catch {} };
   }, [isFocused]);
 
-  const label = ` Transaction details [${mode.toUpperCase()}] - Press 'c' to copy, 'v' to toggle `;
+  const label = focusedPane === 2 ? " Transaction details - Press 'c' to copy " : "Transaction details";
 
   // @ts-ignore blessed element
   return (
@@ -104,6 +119,15 @@ export const TxDetails: React.FC<Props> = React.memo(({ txData, isFocused, mode 
           bg: isFocused ? 'yellow' : undefined
         }
       }}
-    />
+    >
+      <DebugBox
+        visible={debugVisible}
+        rawLen={rawLen}
+        txLen={txLen}
+        seq={seq}
+        clipboardyOk={clipboardyOk}
+        focusedPane={focusedPane}
+      />
+    </box>
   );
 });

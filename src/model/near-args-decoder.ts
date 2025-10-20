@@ -36,12 +36,20 @@ export function decorateFunctionCallArgs(action: any): any {
         };
       }
 
-      // Binary data
+      // Binary data - show middle-truncated base64
+      const keepEachSide = 20;
+      let displayArgs: string;
+      if (argsBase64.length <= keepEachSide * 2 + 3) {
+        displayArgs = `${argsBase64} (${decoded.length} bytes)`;
+      } else {
+        displayArgs = `${argsBase64.slice(0, keepEachSide)}...${argsBase64.slice(-keepEachSide)} (${decoded.length} bytes)`;
+      }
+
       return {
         FunctionCall: {
           ...fc,
-          args: `<${decoded.length} bytes>`,
-          args_bytes: argsBase64
+          args: displayArgs,
+          args_bytes: argsBase64  // Full base64 for clipboard
         }
       };
     }

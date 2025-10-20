@@ -2,3 +2,30 @@
 node_modules
 csli.json
 .DS_Store
+
+# Database files
+*.db
+*.db-shm
+*.db-wal
+
+# Test files
+test-*.ts
+src/test-*.ts
+
+# Session/temporary documentation
+SESSION-*.md
+*-SUMMARY.md
+*-COMPLETE.md
+*-UPDATE.md
+*-INSIGHTS.md
+*-PROGRESS.md
+*-PLAN.md
+*-GUIDE.md
+*-REFERENCE.md
+*-MAPPING.md
+
+# Archives
+*.zip
+
+# Python scripts (temporary)
+create-archive.py

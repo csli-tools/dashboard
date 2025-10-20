@@ -1,170 +1,102 @@
-import Database from 'better-sqlite3';
+import { Worker } from 'node:worker_threads';
 
-let db: Database.Database | null = null;
-
-export function startHistory(dbPath: string) {
-  db = new Database(dbPath);
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS blocks (
-      height INTEGER PRIMARY KEY,
-      hash TEXT NOT NULL,
-      ts_ms INTEGER NOT NULL
-    );
-
-    CREATE TABLE IF NOT EXISTS transactions (
-      hash TEXT PRIMARY KEY,
-      block_height INTEGER NOT NULL,
-      signer TEXT,
-      receiver TEXT,
-      actions TEXT,
-      raw TEXT,
-      FOREIGN KEY (block_height) REFERENCES blocks(height)
-    );
-
-    CREATE INDEX IF NOT EXISTS idx_tx_signer ON transactions(signer);
-    CREATE INDEX IF NOT EXISTS idx_tx_receiver ON transactions(receiver);
-    CREATE INDEX IF NOT EXISTS idx_tx_block ON transactions(block_height);
-
-    CREATE TABLE IF NOT EXISTS marks (
-      label TEXT PRIMARY KEY,
-      pane INTEGER NOT NULL,
-      block_height INTEGER,
-      tx_hash TEXT,
-      pinned INTEGER DEFAULT 0,
-      created_at INTEGER NOT NULL
-    );
-  `);
-}
-
-export function persistBlock(block: {
+type BlockPersist = {
   height: number;
   hash: string;
   ts_ms: number;
-  txs: Array<{
-    hash: string;
-    signer?: string;
-    receiver?: string;
-    actions?: any[];
-    raw: any;
-  }>;
-}) {
-  if (!db) return;
+  txs: Array<{ hash: string; signer?: string; receiver?: string; actions?: any[]; raw?: any }>;
+};
 
-  const insertBlock = db.prepare('INSERT OR REPLACE INTO blocks (height, hash, ts_ms) VALUES (?, ?, ?)');
-  const insertTx = db.prepare('INSERT OR REPLACE INTO transactions (hash, block_height, signer, receiver, actions, raw) VALUES (?, ?, ?, ?, ?, ?)');
+let w: Worker | null = null;
+let ready = false;
 
-  const insertMany = db.transaction((block: any) => {
-    insertBlock.run(block.height, block.hash, block.ts_ms);
-    for (const tx of block.txs) {
-      insertTx.run(
-        tx.hash,
-        block.height,
-        tx.signer || null,
-        tx.receiver || null,
-        JSON.stringify(tx.actions || []),
-        JSON.stringify(tx.raw)
-      );
-    }
+export function startHistory(dbPath: string): void {
+  if (w) return;
+  const workerPath = require.resolve('./history-worker.ts');
+  w = new Worker(workerPath, { execArgv: ['-r', 'ts-node/register/transpile-only'] });
+  w.on('message', (msg: any) => { if (msg?.type === 'init' && msg.ok) ready = true; });
+  w.on('error', () => { ready = false; });
+  w.on('exit', () => { ready = false; w = null; });
+  w.postMessage({ type: 'init', dbPath });
+}
+
+export function persistBlock(block: BlockPersist): void {
+  if (!w || !ready) return;
+  w.postMessage({ type: 'putBlock', block });
+}
+
+export type HistoryHit = {
+  hash: string;
+  height: number;
+  ts_ms: number;
+  signer?: string;
+  receiver?: string;
+  methods?: string;
+};
+
+function once<T = any>(pred: (m:any)=>boolean): Promise<T> {
+  return new Promise((resolve, reject) => {
+    if (!w || !ready) return resolve(undefined as unknown as T);
+    const onMsg = (msg: any) => { if (pred(msg)) { cleanup(); resolve(msg as T); } };
+    const onErr = (err: any) => { cleanup(); reject(err); };
+    const cleanup = () => { w?.off('message', onMsg); w?.off('error', onErr); };
+    w.on('message', onMsg);
+    w.on('error', onErr);
   });
-
-  insertMany(block);
 }
 
-export function searchHistory(
-  query: string,
-  limit: number = 100,
-  order: 'asc' | 'desc' = 'desc'
-): Array<{ hash: string; signer?: string; receiver?: string; block_height: number; ts_ms: number }> {
-  if (!db) return [];
-
-  const q = `%${query}%`;
-  const stmt = db.prepare(`
-    SELECT t.hash, t.signer, t.receiver, t.block_height, b.ts_ms
-    FROM transactions t
-    JOIN blocks b ON t.block_height = b.height
-    WHERE t.hash LIKE ? OR t.signer LIKE ? OR t.receiver LIKE ?
-    ORDER BY b.ts_ms ${order === 'desc' ? 'DESC' : 'ASC'}
-    LIMIT ?
-  `);
-
-  return stmt.all(q, q, q, limit) as any[];
+export function searchHistory(query: string, limit = 200, order: 'asc'|'desc' = 'desc'): Promise<HistoryHit[]> {
+  if (!w || !ready) return Promise.resolve([]);
+  const p = once<any>(m => m?.type === 'search');
+  w.postMessage({ type: 'search', query, limit, order });
+  return p.then(m => m.rows as HistoryHit[]);
 }
 
-export function getTxByHash(hash: string): any | null {
-  if (!db) return null;
-
-  const stmt = db.prepare('SELECT raw FROM transactions WHERE hash = ?');
-  const row = stmt.get(hash) as any;
-
-  if (!row) return null;
-
-  try {
-    return JSON.parse(row.raw);
-  } catch {
-    return null;
-  }
+export function getTxByHash(hash: string): Promise<any | null> {
+  if (!w || !ready) return Promise.resolve(null);
+  const p = once<any>(m => m?.type === 'getTx');
+  w.postMessage({ type: 'getTx', hash });
+  return p.then(m => m.tx ?? null);
 }
 
-export function listMarks(): Array<{
-  label: string;
-  pane: number;
-  block_height?: number;
-  tx_hash?: string;
-  pinned: boolean;
-  created_at: number;
-}> {
-  if (!db) return [];
-
-  const stmt = db.prepare('SELECT * FROM marks ORDER BY created_at DESC');
-  const rows = stmt.all() as any[];
-
-  return rows.map(r => ({
-    label: r.label,
-    pane: r.pane,
-    block_height: r.block_height || undefined,
-    tx_hash: r.tx_hash || undefined,
-    pinned: r.pinned === 1,
-    created_at: r.created_at
-  }));
+// marks
+export type PersistedMark = { label: string; pane: number; height?: number; tx?: string; when_ms: number; pinned: number; created_at?: number };
+export function listMarks(): Promise<PersistedMark[]> {
+  if (!w || !ready) return Promise.resolve([]);
+  const p = once<any>(m => m?.type === 'listMarks');
+  w.postMessage({ type: 'listMarks' });
+  return p.then(m => (m.rows as PersistedMark[]) || []);
+}
+export function putMark(mark: { label: string; pane: number; height?: number; tx?: string; when_ms?: number; pinned?: boolean }): Promise<void> {
+  if (!w || !ready) return Promise.resolve();
+  const p = once<any>(m => m?.type === 'putMark');
+  w.postMessage({ type: 'putMark', mark });
+  return p.then(() => {});
+}
+export function delMark(label: string): Promise<void> {
+  if (!w || !ready) return Promise.resolve();
+  const p = once<any>(m => m?.type === 'delMark');
+  w.postMessage({ type: 'delMark', label });
+  return p.then(() => {});
+}
+export function setMarkPinned(label: string, pinned: boolean): Promise<void> {
+  if (!w || !ready) return Promise.resolve();
+  const p = once<any>(m => m?.type === 'setMarkPinned');
+  w.postMessage({ type: 'setMarkPinned', label, pinned });
+  return p.then(() => {});
 }
 
-export function putMark(mark: {
-  label: string;
-  pane: number;
-  block_height?: number;
-  tx_hash?: string;
-  pinned?: boolean;
-}) {
-  if (!db) return;
-
-  const stmt = db.prepare(`
-    INSERT OR REPLACE INTO marks (label, pane, block_height, tx_hash, pinned, created_at)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `);
-
-  const existing = db.prepare('SELECT created_at FROM marks WHERE label = ?').get(mark.label) as any;
-  const created_at = existing?.created_at || Date.now();
-
-  stmt.run(
-    mark.label,
-    mark.pane,
-    mark.block_height || null,
-    mark.tx_hash || null,
-    mark.pinned ? 1 : 0,
-    created_at
-  );
+// settings
+export async function getSetting<T=any>(key: string, fallback?: T): Promise<T|undefined> {
+  if (!w || !ready) return fallback;
+  const p = once<any>(m => m?.type === 'getSetting' && m.key === key);
+  w.postMessage({ type: 'getSetting', key });
+  const res = await p;
+  return (res?.value ?? fallback) as T;
 }
-
-export function delMark(label: string) {
-  if (!db) return;
-
-  const stmt = db.prepare('DELETE FROM marks WHERE label = ?');
-  stmt.run(label);
-}
-
-export function setMarkPinned(label: string, pinned: boolean) {
-  if (!db) return;
-
-  const stmt = db.prepare('UPDATE marks SET pinned = ? WHERE label = ?');
-  stmt.run(pinned ? 1 : 0, label);
+export function setSetting(key: string, value: any): Promise<void> {
+  if (!w || !ready) return Promise.resolve();
+  const p = once<any>(m => m?.type === 'setSetting' && m.key === key);
+  w.postMessage({ type: 'setSetting', key, value });
+  return p.then(() => {});
 }
